@@ -1,0 +1,67 @@
+{
+  "manifest_version": 3,
+  "name": "SmartCapture Pro",
+  "version": "1.0.0",
+  "description": "AI-powered full-page screenshots with annotations & OCR",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "downloads",
+    "alarms",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "public/icons/icon16.png",
+      "48": "public/icons/icon48.png",
+      "128": "public/icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background/index.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/index.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "public/icons/icon16.png",
+    "48": "public/icons/icon48.png",
+    "128": "public/icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "tesseract/worker.min.js",
+        "tesseract/tesseract-core-simd-lstm.wasm.js",
+        "tesseract/tesseract-core-simd-lstm.wasm",
+        "tesseract/langs/*",
+        "src/editor/index.html",
+        "assets/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "commands": {
+    "capture-full-page": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "Capture full page"
+    },
+    "capture-visible": {
+      "suggested_key": {
+        "default": "Alt+Shift+V"
+      },
+      "description": "Capture visible area"
+    }
+  }
+}

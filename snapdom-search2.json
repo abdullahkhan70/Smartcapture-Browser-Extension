@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://github.com/zumerlab/snapdom",
+    "name": "SnapDOM: DOM to anything engine — fast, modular, extensible.",
+    "snippet": "Limitations. External images should be CORS-accessible (use useProxy option for handling CORS denied); When WebP format ...",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/zumerlab/snapdom/blob/main/CHANGELOG.md",
+    "name": "CHANGELOG.md - zumerlab/snapdom - GitHub",
+    "snippet": "fix(iframe): restore live iframe scroll position after capture. · fix(capture): preserve mask-mode ...",
+    "host_name": "github.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.cssscript.com/dom-to-image-capture",
+    "name": "snapDOM: Fast & Accurate DOM to Image Capture Library | CSS Script",
+    "snippet": "A: No, snapDOM doesn't capture iframe content due to browser security restrictions (cross-origin limitations). It captures the <iframe> ...",
+    "host_name": "www.cssscript.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://stackoverflow.com/questions/40248467/chrome-extension-accessing-a-cross-origin-iframe-within-background-html",
+    "name": "Chrome Extension: Accessing a cross-origin iframe within",
+    "snippet": "I'm trying to write an extension that scrapes a site that needs to be loaded as a webpage, due to the complexities of the pages (XHR isn't really an option). How to access iframe from chrome extension while evading cross ... Cross-Origin issue with iFrame for chrome extension - Stack Overflow More results from stackoverflow.com Missing: @zumer/ snapdom limitations images",
+    "host_name": "stackoverflow.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/zumerlab/snapdom/issues/347",
+    "name": "Why can't enable cors in built like html-to-image or useCors - GitHub",
+    "snippet": "I am trying the image example from https://snapdom.dev/. I was unable to capture that stackoverflow example.",
+    "host_name": "github.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/zumerlab/snapdom/issues",
+    "name": "Issues · zumerlab/snapdom - GitHub",
+    "snippet": "To pick up a draggable item, press the space bar. While dragging, use the arrow keys to move the item. Press space again to drop the item in its new ...",
+    "host_name": "github.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://snapdom.dev",
+    "name": "SnapDOM: Next-Generation DOM Capture Engine for fast and",
+    "snippet": "Snapdom is a powerful alternative to html2canvas and similar tools, offering extreme precision when capturing DOM elements, including pseudo-elements, ... Missing: chrome extension limitations",
+    "host_name": "snapdom.dev",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/zumerlab/snapdom/issues/190",
+    "name": "toCanvas() produces blank canvas when rendering images  - GitHub",
+    "snippet": "toCanvas() fails to render images when the <img> element has a srcset attribute. The canvas is generated but remains empty/blank, while the same ... Missing: limitations cross- origin iframe",
+    "host_name": "github.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/zumerlab/snapdom/issues/172",
+    "name": "WICG Html-in-Canvas experiment #172 - zumerlab/snapdom - GitHub",
+    "snippet": "I managed to create a custom plugin to use html-in-Canvas! It allows to skip Foreign-Object and directly use the snapdom clone. The plugin is ...",
+    "host_name": "github.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/zumerlab/snapdom/issues/222",
+    "name": "Add support to same origin iframes #222 - zumerlab/snapdom - GitHub",
+    "snippet": "SnapDOM: Next-generation DOM capture engine — fast, modular, extensible. - Add support to same origin iframes · Issue #222 · zumerlab/snapdom.",
+    "host_name": "github.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

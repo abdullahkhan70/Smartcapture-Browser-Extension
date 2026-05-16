@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://github.com/mrcoles/full-page-screen-capture-chrome-extension",
+    "name": "mrcoles/full-page-screen-capture-chrome-extension - GitHub",
+    "snippet": "A simple Google Chrome extension that takes a screen capture of a full web page. Every extension I tried couldn't do this on Chrome 22 on Mac OSX Lion. Missing: technique | Show results with: technique",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/hacess/chrome-extension-manifestv3-full-page-screenshot",
+    "name": "Full-Page Screenshots Chrome Extension manifest v3 - GitHub",
+    "snippet": "Overview. This Chrome extension will capture screenshots of the entire webpage by scrolling and stitch them together into a full-page screenshot.",
+    "host_name": "github.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://chromewebstore.google.com/detail/gofullpage-full-page-scre/fdpohaocaechififmbbbbbknoalclacl?hl=en",
+    "name": "GoFullPage - Full Page Screen Capture - Chrome Web Store",
+    "snippet": "Capture a screenshot of your current page in entirety and reliably—without requesting any extra permissions! The simplest way to take a full page screenshot ... Missing: works code implementation",
+    "host_name": "chromewebstore.google.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://gofullpage.com/faq",
+    "name": "FAQs | GoFullPage",
+    "snippet": "GoFullPage is a browser extension that can take a screenshot of an entire webpage that you are viewing in your browser. When you click on the extension icon, ...",
+    "host_name": "gofullpage.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/mrcoles/full-page-screen-capture-chrome-extension/blob/master/CHANGES.md",
+    "name": "full-page-screen-capture-chrome-extension/CHANGES.md at master",
+    "snippet": "The simplest way to take a full page screenshot of your current browser window. Click on the extension in your browser bar (or press Alt+Shift+P), watch the ... Missing: technique | Show results with: technique",
+    "host_name": "github.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/mrcoles/full-page-screen-capture-chrome-extension/blob/master/README.md",
+    "name": "full-page-screen-capture-chrome-extension/README.md at master",
+    "snippet": "A simple Google Chrome extension that takes a screen capture of a full web page. Every extension I tried couldn't do this on Chrome 22 on Mac OSX Lion. Missing: GoFullPage technique",
+    "host_name": "github.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://mrcoles.com/full-page-screen-capture-chrome-extension",
+    "name": "GoFullPage - Full Page Screen Capture Chrome Extension",
+    "snippet": "A simple google Chrome extension to take a screenshot of the full page, and some other options for Mac users. Missing: implementation | Show results with: implementation",
+    "host_name": "mrcoles.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.chandrawebdesign.com/video-resources/how-to-screenshot-a-whole-webpage",
+    "name": "How to Screenshot a Whole Webpage - Chandra Web Design",
+    "snippet": "Effortlessly capture full-length pages - learn how to screenshot an entire webpage with the GoFullPage extension in just a few clicks! Missing: source code github implementation",
+    "host_name": "www.chandrawebdesign.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=oXGKyDaAJRo",
+    "name": "GoFullPage Chrome Extension – Full Page Capture Tutorial",
+    "snippet": "Want to capture a full webpage without scrolling and stitching screenshots manually? In this video, I'll show you how to use the GoFullPage ... Missing: works technique source github implementation",
+    "host_name": "www.youtube.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/topics/fullpage-screenshot",
+    "name": "fullpage-screenshot · GitHub Topics",
+    "snippet": "A simple utility to capture fullpage screenshot, screenshot of any element and crop the screenshot by any screen coordinates from your e2e protractor tests ... Missing: GoFullPage technique",
+    "host_name": "github.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

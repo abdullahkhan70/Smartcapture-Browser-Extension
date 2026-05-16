@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://cocoshot.net/blog/posts/best-chrome-screenshot-extensions-2026",
+    "name": "12 Best Screenshot Extensions for Google Chrome in 2026",
+    "snippet": "It offers a seamless experience for capturing full-page screenshots, desktop screenshots, and even entire web pages with hyperlinks intact. Missing: snapdom | Show results with: snapdom",
+    "host_name": "cocoshot.net",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://stackoverflow.com/questions/54395852/chrome-tabs-capturevisibletab-vs-chrome-desktopcapture",
+    "name": "chrome.tabs.captureVisibleTab vs chrome.desktopCapture",
+    "snippet": "I'm new to Chrome extension development and I am trying to build an extension which take's screenshot of the pages of an ebook. Taking full page screenshot with a Chrome extension - Stack Overflow Chrome's captureVisibleTab without extension - Stack Overflow More results from stackoverflow.com Missing: snapdom stitching",
+    "host_name": "stackoverflow.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://leolime.com/blog/comparing-screenshot-tools",
+    "name": "Comparing the Top 5 Chrome Extension Screenshot Tools - Leolime",
+    "snippet": "Explore and compare the top five Chrome extension screenshot products to find the right one for your needs. Missing: snapdom | Show results with: snapdom",
+    "host_name": "leolime.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/learnprogramming/comments/11cluac/building_a_chrome_extension_any_way_to_take_a",
+    "name": "Building a Chrome extension - any way to take a screenshot  - Reddit",
+    "snippet": "Building a Chrome extension and need to grab a screenshot of the entire page. Currently using captureVisibleTab to screenshot the visible portion of the page. Missing: snapdom stitching comparison",
+    "host_name": "www.reddit.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://news.ycombinator.com/item?id=43813330",
+    "name": "Show HN: I created snapDOM to capture DOM nodes as images",
+    "snippet": "Firefox has screenshot that auto-picks elements, or you can click and drag a crop, or you can save the whole page. That and ad nauseam are the reason I use ... Missing: stitching | Show results with: stitching",
+    "host_name": "news.ycombinator.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  }
+]

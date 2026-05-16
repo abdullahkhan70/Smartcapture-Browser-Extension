@@ -1,0 +1,268 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== Root Variables (Matching PDF Mockup) ===== */
+:root {
+  --ed-bg-primary: #1a1f2e;
+  --ed-bg-secondary: #1e2433;
+  --ed-bg-toolbar: #1a1f2e;
+  --ed-bg-panel: #1e2433;
+  --ed-bg-canvas: #151926;
+  --ed-accent: #00a8ff;
+  --ed-accent-hover: #3db8ff;
+  --ed-accent-glow: rgba(0, 168, 255, 0.25);
+  --ed-text-primary: #ffffff;
+  --ed-text-secondary: #a0aec0;
+  --ed-text-muted: #64748b;
+  --ed-border: #2a3042;
+  --ed-border-light: rgba(255, 255, 255, 0.06);
+  --ed-surface-hover: rgba(255, 255, 255, 0.04);
+  --ed-slider-track: #2a3042;
+  --ed-slider-thumb: #00a8ff;
+  --ed-danger: #ef4444;
+}
+
+/* ===== Base Styles ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--ed-bg-primary);
+  color: var(--ed-text-primary);
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+/* ===== Custom Scrollbar ===== */
+.scrollbar-ed-thin::-webkit-scrollbar {
+  width: 5px;
+}
+.scrollbar-ed-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-ed-thin::-webkit-scrollbar-thumb {
+  background-color: var(--ed-border);
+  border-radius: 4px;
+}
+.scrollbar-ed-thin::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ed-text-muted);
+}
+.scrollbar-ed-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ed-border) transparent;
+}
+
+/* ===== Transitions ===== */
+.ed-transition {
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== Animations ===== */
+@keyframes edSlideLeft {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.ed-animate-slide-left {
+  animation: edSlideLeft 200ms ease-out;
+}
+
+@keyframes edFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.ed-animate-fade-in {
+  animation: edFadeIn 200ms ease-out;
+}
+
+@keyframes edScaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.ed-animate-scale-in {
+  animation: edScaleIn 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes edSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.ed-animate-spin {
+  animation: edSpin 1s linear infinite;
+}
+
+@keyframes edPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.ed-animate-pulse {
+  animation: edPulse 2s ease-in-out infinite;
+}
+
+/* ===== Tooltip ===== */
+.ed-tooltip {
+  position: relative;
+}
+.ed-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ed-bg-secondary);
+  color: var(--ed-text-primary);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+  z-index: 100;
+  border: 1px solid var(--ed-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+.ed-tooltip:hover::after {
+  opacity: 1;
+}
+
+/* ===== Range Input (Matching PDF Mockup) ===== */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--ed-slider-track);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ed-slider-thumb);
+  margin-top: -5px;
+  box-shadow: 0 0 6px var(--ed-accent-glow);
+  transition: transform 100ms ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--ed-slider-track);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ed-slider-thumb);
+  border: none;
+  box-shadow: 0 0 6px var(--ed-accent-glow);
+}
+
+/* ===== Fabric.js Canvas Container Fix ===== */
+.canvas-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ===== Overlay Backdrop ===== */
+.ed-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  animation: edFadeIn 150ms ease-out;
+}
+
+/* ===== Canvas Grid Background (from PDF mockup) ===== */
+.ed-canvas-bg {
+  background-color: var(--ed-bg-canvas);
+  background-image:
+    radial-gradient(ellipse at 30% 20%, rgba(0, 168, 255, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(139, 92, 246, 0.02) 0%, transparent 50%),
+    linear-gradient(var(--ed-border-light) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ed-border-light) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+}
+
+/* ===== Toolbar Button States ===== */
+.ed-tool-btn {
+  @apply flex items-center justify-center rounded-lg cursor-pointer ed-transition;
+  width: 40px;
+  height: 38px;
+  color: var(--ed-text-muted);
+}
+.ed-tool-btn:hover {
+  color: var(--ed-text-secondary);
+  background: var(--ed-surface-hover);
+}
+.ed-tool-btn-active {
+  @apply flex items-center justify-center rounded-lg cursor-pointer ed-transition shadow-lg;
+  width: 40px;
+  height: 38px;
+  background-color: var(--ed-accent);
+  color: white;
+  box-shadow: 0 2px 8px var(--ed-accent-glow);
+}
+
+/* ===== Properties Panel Section ===== */
+.ed-prop-section {
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--ed-border-light);
+}
+.ed-prop-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+/* ===== Utility Colors (used by toast, etc.) ===== */
+.bg-ed-success {
+  background-color: #22C55E;
+}
+
+/* ===== Number Input Spinners Hide ===== */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* ===== Select Dropdown Dark Theme ===== */
+select {
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}

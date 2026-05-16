@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://chromewebstore.google.com/detail/gofullpage-full-page-scre/fdpohaocaechififmbbbbbknoalclacl?hl=en",
+    "name": "GoFullPage - Full Page Screen Capture - Chrome Web Store",
+    "snippet": "Capture a screenshot of your current page in entirety and reliably—without requesting any extra permissions! The simplest way to take a full page screenshot ... Missing: @zumer/ snapdom library",
+    "host_name": "chromewebstore.google.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.npmjs.com/package/@zumer/snapdom",
+    "name": "zumer/snapdom - NPM",
+    "snippet": "snapDOM captures HTML elements to images with exceptional speed and accuracy.. Latest version: 2.9.0, last published: 5 days ago. Missing: chrome | Show results with: chrome",
+    "host_name": "www.npmjs.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://chromewebstore.google.com/detail/capture-full-page-screens/cidcfbmohhngolnpefkjooolbpigjcee",
+    "name": "Capture Full Page Screenshot - Chrome Web Store",
+    "snippet": "Capture Full Page Screenshot extension is a free, easy-to-use extension that allows users to capture visible area and full-page screenshots in seconds. Missing: @zumer/ snapdom library",
+    "host_name": "chromewebstore.google.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://news.ycombinator.com/item?id=43813330",
+    "name": "Show HN: I created snapDOM to capture DOM nodes as images",
+    "snippet": "Sincerely, I don't know if snapdom would work on a browser extension. ... domtoimage lib works for me and is fast whole html body node captured within second ...",
+    "host_name": "news.ycombinator.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://fullpagecapture.com",
+    "name": "Full Page Capture — Free Screenshot Chrome Extension",
+    "snippet": "Capture entire webpages in a single click with Full Page Capture. Free Chrome extension to export full page screenshots as PNG, JPEG, or PDF.",
+    "host_name": "fullpagecapture.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/zumerlab/snapdom/discussions/320",
+    "name": "️ SnapDOM v2 is out 💙 💜 ❤️ – new capture engine, plugins, and",
+    "snippet": "The core has been rewritten into a DOM capture engine with a cleaner architecture, better performance, and a proper plugin system, while keeping the API ...",
+    "host_name": "github.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://chromewebstore.google.com/detail/screenshot-full-page-scre/nmbngkjfkglbmmnlicoejhgaklphedcg?hl=vi",
+    "name": "Full Page Screenshot - Screen Capture - Cửa hàng Chrome trực tuyến",
+    "snippet": "The best way to take a full page screenshot of your current browser window. Click on the Screenshot icon (or press Alt+Shift+P), watch the extension capture ... Missing: @zumer/ snapdom library",
+    "host_name": "chromewebstore.google.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://screenshotone.com/tools/full-page-screenshot-chrome-extension",
+    "name": "Full-page Screenshot Chrome Extension - ScreenshotOne API",
+    "snippet": "Starting from $0.00 · Developer Render and annotate full-page screenshots of any website as a single image—click and download. No API key or subscription required and privacy-friendly. Missing: @zumer/ snapdom",
+    "host_name": "screenshotone.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://groups.google.com/a/chromium.org/g/chromium-extensions/c/3VKvUBOCE5I",
+    "name": "How to capture fullpage screenshot using chrome extension",
+    "snippet": "I have developed extension for chrome browser to capture full page screenshot and it will be stored in my site. The problem is currently i can able to capture ... Missing: @zumer/ snapdom",
+    "host_name": "groups.google.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://medium.com/@derailed.dash/create-a-long-full-page-screenshot-from-chrome-0ab2673534df",
+    "name": "Create a Long / Full-Page Screenshot from Chrome (for Full-Screen",
+    "snippet": "From the dropdown that appears, select “Capture full size screenshot”. Press enter or click to view image in full size. Capture full size ... Missing: @zumer/ snapdom library",
+    "host_name": "medium.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]
