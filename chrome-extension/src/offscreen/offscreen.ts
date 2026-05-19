@@ -1,21 +1,21 @@
 /**
- * SmartCapture Pro - Offscreen OCR Engine
+ * SmartCapture Pro - Offscreen OCR Engine (v2)
  *
  * Runs Tesseract.js in a persistent offscreen document.
- * This solves the core problem: Tesseract.js Web Worker + WASM initialization
- * fails/hangs in Chrome extension popups, but works in offscreen documents.
- *
- * KEY FIX: We use workerBlobURL: false (Direct Worker) as the PRIMARY strategy.
- * The Blob Worker approach (workerBlobURL: true) creates a blob with importScripts()
- * which silently hangs in the Chrome extension offscreen context — it never resolves.
- * The Direct Worker creates new Worker(chrome-extension://...) which works correctly.
+ * 
+ * KEY FIXES from v1:
+ * 1. Tesseract.js is loaded via <script> tag in HTML (not bundled) — avoids
+ *    bundling issues and reduces offscreen.js from 59KB to ~5KB
+ * 2. Worker is created with workerBlobURL: false AND we verify files exist first
+ * 3. CDN fallback also uses workerBlobURL: false (v1 used default true, which
+ *    creates a Blob Worker with importScripts that hangs in Chrome extensions)
+ * 4. Pre-flight checks verify tesseract files are accessible before init
+ * 5. Comprehensive logging at every step for debugging
  *
  * Messaging protocol:
  * - Receives: OCR_PREWARM, OCR_RECOGNIZE, OCR_GET_STATUS, OCR_CANCEL
  * - Sends: OCR_STATUS_UPDATE, OCR_PROGRESS, OCR_RESULT, OCR_ERROR
  */
-
-import { createWorker, Worker as TesseractWorker } from 'tesseract.js';
 
 // ===== Types =====
 
@@ -39,7 +39,7 @@ interface OCRResultPayload {
   processingTime?: number;
 }
 
-// Tesseract internal types
+// Tesseract internal types (from the global Tesseract object)
 interface TesseractLine {
   text: string;
   confidence: number;
@@ -65,6 +65,21 @@ interface TesseractData {
 
 interface TesseractRecognizeResult {
   data: TesseractData;
+}
+
+// Global Tesseract type (loaded via script tag)
+declare const Tesseract: {
+  createWorker: (
+    langs?: string | string[],
+    oem?: number,
+    options?: Record<string, unknown>,
+    config?: Record<string, unknown>
+  ) => Promise<TesseractWorker>;
+};
+
+interface TesseractWorker {
+  recognize: (image: string | Blob | ArrayBuffer | Uint8Array) => Promise<TesseractRecognizeResult>;
+  terminate: () => Promise<void>;
 }
 
 // ===== State =====
@@ -195,10 +210,6 @@ function sendError(error: string): void {
 
 // ===== Timeout Wrapper =====
 
-/**
- * Wraps a promise with a timeout. If the promise doesn't resolve within
- * the timeout period, rejects with a timeout error.
- */
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -217,19 +228,72 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
+// ===== Pre-flight Checks =====
+
+/**
+ * Verify that the Tesseract files are accessible from the extension.
+ * Returns true if all required files exist, false otherwise.
+ */
+async function verifyTesseractFiles(): Promise<{ ok: boolean; missing: string[] }> {
+  const requiredFiles = [
+    'tesseract/worker.min.js',
+    'tesseract/tesseract-core-simd-lstm.wasm.js',
+    'tesseract/tesseract-core-simd-lstm.wasm',
+    'tesseract/langs/eng.traineddata.gz',
+  ];
+
+  const missing: string[] = [];
+
+  for (const file of requiredFiles) {
+    const url = chrome.runtime.getURL(file);
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      if (!response.ok) {
+        missing.push(`${file} (HTTP ${response.status})`);
+        logError(`File check FAILED: ${file} - HTTP ${response.status}`);
+      } else {
+        log(`File check OK: ${file} (${url})`);
+      }
+    } catch (err) {
+      missing.push(`${file} (fetch error)`);
+      logError(`File check FAILED: ${file} - fetch error`, err);
+    }
+  }
+
+  return { ok: missing.length === 0, missing };
+}
+
+/**
+ * Verify that the global Tesseract object is available.
+ */
+function verifyTesseractLoaded(): boolean {
+  if (typeof Tesseract !== 'undefined' && typeof Tesseract.createWorker === 'function') {
+    log('Tesseract.js library loaded successfully');
+    return true;
+  }
+  logError('Tesseract.js library NOT loaded! The <script> tag may have failed.');
+  return false;
+}
+
 // ===== Worker Lifecycle =====
 
 /**
- * Initialize the Tesseract worker with the given language.
+ * Initialize the Tesseract worker.
  *
- * CRITICAL: We use workerBlobURL: false (Direct Worker) as the ONLY strategy.
- * The Blob Worker approach (workerBlobURL: true) creates a blob with
- * importScripts("chrome-extension://...") which silently hangs in the
- * Chrome extension offscreen document context — it never resolves.
- *
- * The Direct Worker creates new Worker(chrome-extension://...) which works
- * correctly because the Worker runs in the extension's context and can
- * load resources from the same origin.
+ * CRITICAL INSIGHT about Chrome extension Workers:
+ * 
+ * 1. workerBlobURL: true (default) creates a Blob with importScripts("url") — 
+ *    this HANGS silently in Chrome extension offscreen Workers because importScripts
+ *    from a Blob URL doesn't work with chrome-extension:// URLs.
+ * 
+ * 2. workerBlobURL: false creates new Worker(url) directly — this works because
+ *    the Worker runs in the extension's context and can load resources from the
+ *    same origin. The Worker can then use importScripts inside itself to load
+ *    the core WASM files from chrome-extension:// URLs.
+ * 
+ * 3. CDN URLs with new Worker(cdnUrl) are BLOCKED by Chrome extension CSP.
+ *    We can only use CDN for the workerPath parameter (which the internal Worker
+ *    loads via importScripts), not for the Worker URL itself.
  */
 async function initializeWorker(language: string = 'eng'): Promise<void> {
   // Already ready with the same language
@@ -263,15 +327,23 @@ async function initializeWorker(language: string = 'eng'): Promise<void> {
   log(`Initializing Tesseract worker (attempt ${initAttempts}/${MAX_INIT_ATTEMPTS}) for language: ${language}`);
 
   try {
-    // Build extension resource URLs
-    const workerPath = chrome.runtime.getURL('tesseract/worker.min.js');
-    const corePath = chrome.runtime.getURL('tesseract/tesseract-core-simd-lstm.wasm.js');
-    const langPath = chrome.runtime.getURL('tesseract/langs/');
+    // Step 0: Verify Tesseract library is loaded
+    if (!verifyTesseractLoaded()) {
+      throw new Error(
+        'Tesseract.js library is not loaded. The offscreen.html <script> tag may have failed to load tesseract.min.js. ' +
+        'Ensure tesseract/tesseract.min.js exists in the extension files.'
+      );
+    }
 
-    log('Extension resource URLs:');
-    log('  workerPath:', workerPath);
-    log('  corePath:', corePath);
-    log('  langPath:', langPath);
+    // Step 1: Verify tesseract files are accessible
+    log('Step 1: Verifying Tesseract files are accessible...');
+    const fileCheck = await verifyTesseractFiles();
+    if (!fileCheck.ok) {
+      logError(`Missing Tesseract files: ${fileCheck.missing.join(', ')}`);
+      // Don't throw — we'll try CDN fallback
+    } else {
+      log('All Tesseract files verified OK');
+    }
 
     // Logger function to track Tesseract's internal progress
     const loggerFn = (m: { status: string; progress: number }) => {
@@ -296,60 +368,116 @@ async function initializeWorker(language: string = 'eng'): Promise<void> {
     };
 
     // STRATEGY 1: Direct Worker with local extension files (PRIMARY)
-    // This is the only strategy that works reliably in Chrome extension offscreen documents.
     // workerBlobURL: false creates new Worker(chrome-extension://...) directly.
-    log('Attempting Direct Worker strategy (workerBlobURL: false)...');
+    // This is the ONLY strategy that works reliably in Chrome extension offscreen documents.
+    if (fileCheck.ok) {
+      log('Strategy 1: Direct Worker with local extension files (workerBlobURL: false)...');
+
+      const workerPath = chrome.runtime.getURL('tesseract/worker.min.js');
+      const corePath = chrome.runtime.getURL('tesseract/tesseract-core-simd-lstm.wasm.js');
+      const langPath = chrome.runtime.getURL('tesseract/langs/');
+
+      log('  workerPath:', workerPath);
+      log('  corePath:', corePath);
+      log('  langPath:', langPath);
+
+      try {
+        worker = await withTimeout(
+          Tesseract.createWorker(language, 1, {
+            workerBlobURL: false,
+            workerPath,
+            corePath,
+            langPath,
+            logger: loggerFn,
+          }),
+          120_000, // 2 minute timeout — WASM compilation can be slow
+          'Strategy 1: Direct Worker createWorker'
+        );
+
+        log('Strategy 1 SUCCEEDED! Tesseract worker is ready.');
+        currentLang = language;
+        initAttempts = 0;
+        sendStatusUpdate('ready', 100, 'complete');
+        return;
+      } catch (err) {
+        logError('Strategy 1 FAILED:', err);
+        if (worker) {
+          try { await worker.terminate(); } catch { /* ignore */ }
+          worker = null;
+        }
+      }
+    } else {
+      log('Skipping Strategy 1 — tesseract files not accessible');
+    }
+
+    // STRATEGY 2: CDN Worker Path with workerBlobURL: false
+    // Uses CDN for workerPath, corePath, and langPath, but still creates the
+    // Worker from a local file (not a Blob URL). This works because:
+    // - The Worker is created from chrome-extension:// URL (same-origin, allowed by CSP)
+    // - Inside the Worker, importScripts loads from CDN (allowed because importScripts
+    //   in a Worker can load cross-origin scripts)
+    log('Strategy 2: CDN worker path with local Worker creation (workerBlobURL: false)...');
 
     try {
+      // Get the local worker script path (must be local for Worker creation)
+      const localWorkerPath = chrome.runtime.getURL('tesseract/worker.min.js');
+
       worker = await withTimeout(
-        createWorker(language, 1, {
+        Tesseract.createWorker(language, 1, {
           workerBlobURL: false,
-          workerPath,
-          corePath,
-          langPath,
+          workerPath: localWorkerPath,
+          corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@v5.1.1/tesseract-core-simd-lstm.wasm.js',
+          langPath: 'https://tessdata.projectnaptha.com/4.0.0/',
           logger: loggerFn,
         }),
-        90_000, // 90 second timeout for WASM compilation
-        'Direct Worker createWorker'
+        180_000, // 3 minute timeout — CDN download + WASM compilation
+        'Strategy 2: CDN worker path createWorker'
       );
 
-      log('Direct Worker strategy SUCCEEDED!');
+      log('Strategy 2 SUCCEEDED! Tesseract worker is ready (via CDN core/lang).');
       currentLang = language;
-      initAttempts = 0; // Reset on success
+      initAttempts = 0;
       sendStatusUpdate('ready', 100, 'complete');
-      log('Tesseract worker is READY — OCR can be performed instantly!');
       return;
-    } catch (directErr) {
-      logError('Direct Worker strategy failed:', directErr);
-      // Clean up the failed worker
+    } catch (err) {
+      logError('Strategy 2 FAILED:', err);
       if (worker) {
         try { await worker.terminate(); } catch { /* ignore */ }
         worker = null;
       }
     }
 
-    // STRATEGY 2: CDN Fallback
-    // Uses the CDN-hosted Tesseract files. Works if internet is available.
-    // This is a last resort — it's slower but more likely to succeed.
-    log('Attempting CDN Fallback strategy...');
+    // STRATEGY 3: Full CDN fallback with workerBlobURL: false
+    // Last resort — use CDN for everything. We still use workerBlobURL: false
+    // because the Blob Worker approach hangs in Chrome extensions.
+    // NOTE: This requires the local worker.min.js to exist (for Worker creation),
+    // but uses CDN for core and language data.
+    log('Strategy 3: Full CDN fallback...');
 
     try {
+      const localWorkerPath = chrome.runtime.getURL('tesseract/worker.min.js');
+      
+      if (!localWorkerPath) {
+        throw new Error('Cannot get local worker path — tesseract/worker.min.js not in extension');
+      }
+
       worker = await withTimeout(
-        createWorker(language, 1, {
+        Tesseract.createWorker(language, 1, {
+          workerBlobURL: false,
+          workerPath: localWorkerPath,
           logger: loggerFn,
         }),
-        120_000, // 2 minute timeout — CDN is slower
-        'CDN Fallback createWorker'
+        180_000, // 3 minute timeout
+        'Strategy 3: Full CDN createWorker'
       );
 
-      log('CDN Fallback strategy SUCCEEDED!');
+      log('Strategy 3 SUCCEEDED! Tesseract worker is ready (full CDN).');
       currentLang = language;
       initAttempts = 0;
       sendStatusUpdate('ready', 100, 'complete');
-      log('Tesseract worker is READY (via CDN) — OCR can be performed!');
       return;
-    } catch (cdnErr) {
-      logError('CDN Fallback strategy failed:', cdnErr);
+    } catch (err) {
+      logError('Strategy 3 FAILED:', err);
       if (worker) {
         try { await worker.terminate(); } catch { /* ignore */ }
         worker = null;
@@ -357,15 +485,14 @@ async function initializeWorker(language: string = 'eng'): Promise<void> {
     }
 
     // All strategies failed
-    const errorMsg = `All initialization strategies failed (attempt ${initAttempts}/${MAX_INIT_ATTEMPTS}). ` +
-      'The Direct Worker and CDN strategies both failed. ' +
-      'Please ensure the extension has access to tesseract files and/or internet.';
+    const errorMsg = `All OCR initialization strategies failed (attempt ${initAttempts}/${MAX_INIT_ATTEMPTS}). ` +
+      'Please ensure the extension has access to tesseract files and/or internet connection.';
     logError(errorMsg);
     sendStatusUpdate('error', 0, 'error', errorMsg);
 
-    // If we haven't exceeded max retries, schedule a retry
+    // Schedule retry if we haven't exceeded max attempts
     if (initAttempts < MAX_INIT_ATTEMPTS) {
-      const retryDelay = initAttempts * 5000; // 5s, 10s, 15s
+      const retryDelay = initAttempts * 5000;
       log(`Scheduling retry in ${retryDelay / 1000}s...`);
       setTimeout(() => {
         if (!worker && !isInitializing) {
@@ -533,7 +660,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case 'OCR_PING': {
       // Simple health check — used by background to verify offscreen is alive
-      sendResponse({ alive: true, workerReady: !!worker, isInitializing, isRecognizing });
+      sendResponse({
+        alive: true,
+        workerReady: !!worker,
+        isInitializing,
+        isRecognizing,
+        tesseractLoaded: typeof Tesseract !== 'undefined',
+      });
       return false;
     }
 
@@ -545,11 +678,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 // ===== Auto Pre-warm on Load =====
 
-log('Offscreen document loaded. Pre-warming Tesseract engine...');
+log('Offscreen document loaded. Checking environment...');
 log('Chrome extension context:', {
   runtimeId: chrome.runtime.id,
   manifestVersion: chrome.runtime.getManifest().manifest_version,
 });
 
-// Start initialization immediately — the engine will be ready when the user needs it
-initializeWorker('eng');
+// Check if Tesseract library loaded via <script> tag
+if (typeof Tesseract !== 'undefined') {
+  log('Tesseract.js library detected. Starting engine pre-warm...');
+  // Start initialization immediately — the engine will be ready when the user needs it
+  initializeWorker('eng');
+} else {
+  logError(
+    'Tesseract.js library NOT detected! The <script> tag in offscreen.html may have failed. ' +
+    'Ensure tesseract/tesseract.min.js exists in the extension files and is listed in web_accessible_resources.'
+  );
+  sendStatusUpdate('error', 0, 'error', 'Tesseract.js library failed to load. Check extension files.');
+}

@@ -46,6 +46,7 @@
     {
       "resources": [
         "tesseract/worker.min.js",
+        "tesseract/tesseract.min.js",
         "tesseract/tesseract-core-simd-lstm.wasm.js",
         "tesseract/tesseract-core-simd-lstm.wasm",
         "tesseract/langs/*",

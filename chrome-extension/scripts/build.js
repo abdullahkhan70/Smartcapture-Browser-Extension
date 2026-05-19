@@ -36,8 +36,9 @@ function compileScript(srcPath, outPath, extraArgs = '') {
 
 compileScript('src/background/index.ts', 'src/background/index.js');
 compileScript('src/content/index.ts', 'src/content/index.js');
-// Offscreen OCR engine — bundles tesseract.js into the offscreen script
-compileScript('src/offscreen/offscreen.ts', 'src/offscreen/offscreen.js');
+// Offscreen OCR engine — tesseract.js is loaded via <script> tag in HTML, NOT bundled
+// We use --external:tesseract.js to prevent esbuild from bundling it
+compileScript('src/offscreen/offscreen.ts', 'src/offscreen/offscreen.js', '--external:tesseract.js');
 
 // Step 3: Vite build (popup + editor)
 console.log('📦 Step 3: Vite build (popup + editor)...');
@@ -95,6 +96,7 @@ console.log('   ✅ manifest.json generated');
 console.log('📦 Step 6: Verifying tesseract assets...');
 const requiredFiles = [
   'tesseract/worker.min.js',
+  'tesseract/tesseract.min.js',
   'tesseract/tesseract-core-simd-lstm.wasm.js',
   'tesseract/tesseract-core-simd-lstm.wasm',
   'tesseract/langs/eng.traineddata.gz',

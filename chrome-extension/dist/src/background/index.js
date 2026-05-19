@@ -1258,6 +1258,31 @@ chrome.commands.onCommand.addListener(async (command) => {
     }
   }
 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "ocr-keep-alive") {
+    chrome.runtime.getContexts({
+      contextTypes: ["OFFSCREEN_DOCUMENT"]
+    }).then((contexts) => {
+      if (contexts.length > 0) {
+        log("OCR keep-alive: offscreen document is alive");
+      } else {
+        log("OCR keep-alive: offscreen document was killed, recreating...");
+        ensureOffscreenDocument();
+      }
+    }).catch(() => {
+      log("OCR keep-alive: failed to check, recreating offscreen...");
+      ensureOffscreenDocument();
+    });
+  }
+});
+async function prewarmOCREngine() {
+  log("Pre-warming OCR engine via offscreen document...");
+  await ensureOffscreenDocument();
+  setTimeout(() => {
+    chrome.runtime.sendMessage({ type: "OCR_PREWARM", payload: { language: "eng" } }).catch(() => {
+    });
+  }, 1e3);
+}
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
     log("SmartCapture Pro installed");
@@ -1273,12 +1298,17 @@ chrome.runtime.onInstalled.addListener((details) => {
         fixedElementHandling: true
       }
     });
-    ensureOffscreenDocument();
+    prewarmOCREngine();
+    chrome.alarms.create("ocr-keep-alive", { periodInMinutes: 4 });
   } else if (details.reason === "update") {
     log("SmartCapture Pro updated", `Previous version: ${details.previousVersion}`);
+    prewarmOCREngine();
+    chrome.alarms.create("ocr-keep-alive", { periodInMinutes: 4 });
   }
 });
 chrome.runtime.onStartup.addListener(() => {
   log("SmartCapture Pro service worker started");
+  prewarmOCREngine();
+  chrome.alarms.create("ocr-keep-alive", { periodInMinutes: 4 });
 });
 log("Background service worker loaded");

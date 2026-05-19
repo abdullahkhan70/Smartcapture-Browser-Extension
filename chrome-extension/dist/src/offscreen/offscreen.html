@@ -5,10 +5,17 @@
   <title>SmartCapture OCR Engine</title>
 </head>
 <body>
-  <!-- Offscreen document for running Tesseract.js OCR engine.
-       This document persists independently of the popup,
-       allowing the WASM engine to stay initialized across popup sessions.
-       Web Workers and WASM work properly here (unlike in service workers). -->
+  <!--
+    Offscreen document for running Tesseract.js OCR engine.
+    This document persists independently of the popup,
+    allowing the WASM engine to stay initialized across popup sessions.
+    
+    Architecture:
+    - tesseract.min.js is loaded via <script> tag (not bundled)
+    - offscreen.js uses the global Tesseract object
+    - Worker is created with workerBlobURL: false for Chrome extension compatibility
+  -->
+  <script src="../../tesseract/tesseract.min.js"></script>
   <script type="module" src="offscreen.js"></script>
 </body>
 </html>
