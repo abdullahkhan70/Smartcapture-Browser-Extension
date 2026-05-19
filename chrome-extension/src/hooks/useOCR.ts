@@ -110,71 +110,29 @@ function blobToDataURL(blob: Blob): Promise<string> {
 
 /**
  * Extract a meaningful error message from ANY thrown value.
- * Tesseract.js errors come through Worker postMessage which strips class info,
- * so we can't rely on instanceof checks alone.
  */
 function extractErrorMessage(err: unknown): string {
-  // 1. Standard Error objects
-  if (err instanceof Error) {
-    return err.message || err.toString();
-  }
-
-  // 2. DOMException (thrown by CSP violations, Worker creation failures, etc.)
+  if (err instanceof Error) return err.message || err.toString();
   if (typeof DOMException !== 'undefined' && err instanceof DOMException) {
     return `DOMException [${err.name}]: ${err.message}`;
   }
-
-  // 3. String throws
-  if (typeof err === 'string') {
-    return err;
-  }
-
-  // 4. Number throws (rare but possible)
-  if (typeof err === 'number') {
-    return `Error code: ${err}`;
-  }
-
-  // 5. Object throws (most common from Worker postMessage)
+  if (typeof err === 'string') return err;
+  if (typeof err === 'number') return `Error code: ${err}`;
   if (err !== null && err !== undefined && typeof err === 'object') {
     const obj = err as Record<string, unknown>;
-
-    // Try common error-like properties
-    if (obj.message) {
-      const msg = typeof obj.message === 'string' ? obj.message : String(obj.message);
-      if (msg) return msg;
+    for (const key of ['message', 'error', 'statusText', 'description']) {
+      const val = obj[key];
+      if (val && typeof val === 'string') return val;
     }
-
-    if (obj.error) {
-      const e = typeof obj.error === 'string' ? obj.error : String(obj.error);
-      if (e) return e;
-    }
-
-    if (obj.statusText) {
-      const s = typeof obj.statusText === 'string' ? obj.statusText : String(obj.statusText);
-      if (s) return s;
-    }
-
-    if (obj.description) {
-      const d = typeof obj.description === 'string' ? obj.description : String(obj.description);
-      if (d) return d;
-    }
-
-    // Try to get a meaningful string representation
-    if (typeof obj.toString === 'function') {
-      try {
-        const str = obj.toString();
-        if (str && str !== '[object Object]') return str;
-      } catch { /* ignore */ }
-    }
-
-    // Last resort: JSON stringify (handles most error objects from postMessage)
+    try {
+      const str = typeof obj.toString === 'function' ? obj.toString() : '';
+      if (str && str !== '[object Object]') return str;
+    } catch { /* ignore */ }
     try {
       const json = JSON.stringify(err);
       if (json && json !== '{}') return json;
     } catch { /* circular reference */ }
   }
-
-  // 6. null / undefined / boolean / symbol / anything else
   if (err === null) return 'null error';
   if (err === undefined) return 'undefined error';
   return `Unknown OCR error (${typeof err})`;
@@ -216,19 +174,12 @@ function parseParagraphs(data: TesseractData): OCRParagraph[] {
         const minY = Math.min(...lines.map((l) => l.bbox.y0));
         const maxX = Math.max(...lines.map((l) => l.bbox.x1));
         const maxY = Math.max(...lines.map((l) => l.bbox.y1));
-        bbox = {
-          x: minX,
-          y: minY,
-          width: maxX - minX,
-          height: maxY - minY,
-        };
+        bbox = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
       }
 
       const avgConfidence =
         allWords.length > 0
-          ? Math.round(
-              allWords.reduce((sum, w) => sum + w.confidence, 0) / allWords.length
-            )
+          ? Math.round(allWords.reduce((sum, w) => sum + w.confidence, 0) / allWords.length)
           : para.confidence;
 
       return {
@@ -242,7 +193,6 @@ function parseParagraphs(data: TesseractData): OCRParagraph[] {
 }
 
 // ===== Tesseract Worker Manager (singleton) =====
-// Keeps one worker alive and reuses it across OCR calls.
 
 class TesseractWorkerManager {
   private worker: Worker | null = null;
@@ -250,8 +200,10 @@ class TesseractWorkerManager {
   private initializing: Promise<Worker> | null = null;
   private _isTerminated = false;
 
-  private static INIT_TIMEOUT = 120_000; // 2 min for worker init + lang load
-  private static RECOGNIZE_TIMEOUT = 120_000; // 2 min for recognition (large images)
+  // Shorter timeouts — Tesseract in Chrome extensions often hangs,
+  // so we fail fast and fall back to server
+  private static PER_STRATEGY_TIMEOUT = 30_000; // 30s per strategy attempt
+  private static RECOGNIZE_TIMEOUT = 60_000; // 60s for recognition
 
   get isReady(): boolean {
     return this.worker !== null && !this._isTerminated;
@@ -288,8 +240,8 @@ class TesseractWorkerManager {
     try {
       this.worker = await this._withTimeout(
         this.initializing,
-        TesseractWorkerManager.INIT_TIMEOUT,
-        `Worker initialization timed out after ${TesseractWorkerManager.INIT_TIMEOUT / 1000}s`
+        TesseractWorkerManager.PER_STRATEGY_TIMEOUT,
+        `Tesseract initialization timed out after ${TesseractWorkerManager.PER_STRATEGY_TIMEOUT / 1000}s. This is common in Chrome extensions — try "AI Vision" mode instead.`
       );
       this.currentLang = language;
       this._isTerminated = false;
@@ -308,9 +260,7 @@ class TesseractWorkerManager {
 
   /**
    * Try multiple strategies to create a Tesseract worker.
-   * Strategy 1: Extension context with local files + workerBlobURL=false
-   * Strategy 2: Non-extension context with local public files + workerBlobURL=false
-   * Strategy 3: Default (CDN + blob URL) — works in regular web pages
+   * Each strategy has its own timeout so we fail fast.
    */
   private async _tryCreateWorkerStrategies(
     language: string,
@@ -322,7 +272,7 @@ class TesseractWorkerManager {
     const strategies: Array<{ name: string; options: Record<string, unknown> }> = [];
 
     if (isExtension) {
-      // Strategy 1: Chrome Extension with local bundled files
+      // Strategy 1: Chrome Extension with local bundled files + workerBlobURL=false
       strategies.push({
         name: 'Extension Local Files (workerBlobURL=false)',
         options: {
@@ -334,16 +284,18 @@ class TesseractWorkerManager {
       });
     }
 
-    // Strategy 2: Local public files with workerBlobURL=false
-    strategies.push({
-      name: 'Public Local Files (workerBlobURL=false)',
-      options: {
-        workerBlobURL: false,
-        workerPath: '/tesseract/worker.min.js',
-        corePath: '/tesseract/tesseract-core-simd-lstm.wasm.js',
-        langPath: '/tesseract/langs/',
-      },
-    });
+    // Strategy 2: Local public files with workerBlobURL=false (for web app context)
+    if (!isExtension) {
+      strategies.push({
+        name: 'Public Local Files (workerBlobURL=false)',
+        options: {
+          workerBlobURL: false,
+          workerPath: '/tesseract/worker.min.js',
+          corePath: '/tesseract/tesseract-core-simd-lstm.wasm.js',
+          langPath: '/tesseract/langs/',
+        },
+      });
+    }
 
     // Strategy 3: Default CDN approach (works in regular web pages without CSP)
     strategies.push({
@@ -398,9 +350,9 @@ class TesseractWorkerManager {
 
     // All strategies failed
     throw new Error(
-      `Failed to initialize OCR engine after trying ${strategies.length} strategies. ` +
+      `Tesseract.js failed to initialize after trying ${strategies.length} strategies. ` +
       `Last error: ${extractErrorMessage(lastError)}. ` +
-      `This may be due to browser security restrictions (CSP). Try using "AI Vision" mode instead.`
+      `This is a known issue in Chrome extensions. Please use "AI Vision" mode instead, which is faster and more reliable.`
     );
   }
 
@@ -557,7 +509,7 @@ export function useOCR(): UseOCRReturn {
     async (
       imageData: string | Blob,
       language: string = 'eng',
-      preferredMode: OCRMode = 'local'
+      preferredMode: OCRMode = 'server'
     ): Promise<OCRResult> => {
       if (isProcessing) {
         throw new Error('OCR is already in progress');
@@ -610,30 +562,30 @@ export function useOCR(): UseOCRReturn {
           setProgress(100);
           setPhase('complete');
         } else {
-          // Auto mode: try local first, fall back to server
+          // Auto mode: try server first (more reliable), fall back to local
           setMode('auto');
           try {
-            ocrResult = await extractTextViaTesseract(imageInput, language, updatePhase);
-            setMode('local');
-          } catch (localErr: unknown) {
+            setPhase('recognizing');
+            setProgress(10);
+            ocrResult = await extractTextViaServer(imageInput, language);
+            setMode('server');
+            setProgress(100);
+            setPhase('complete');
+          } catch (serverErr: unknown) {
             console.warn(
-              '[SmartCapture OCR] Local OCR failed, falling back to server:',
-              extractErrorMessage(localErr)
+              '[SmartCapture OCR] Server OCR failed, falling back to local Tesseract:',
+              extractErrorMessage(serverErr)
             );
             if (cancelRef.current) throw new Error('OCR was cancelled');
 
-            setPhase('recognizing');
-            setProgress(10);
             try {
-              ocrResult = await extractTextViaServer(imageInput, language);
-              setMode('server');
-              setProgress(100);
-              setPhase('complete');
-            } catch (serverErr: unknown) {
-              const localMsg = extractErrorMessage(localErr);
+              ocrResult = await extractTextViaTesseract(imageInput, language, updatePhase);
+              setMode('local');
+            } catch (localErr: unknown) {
               const serverMsg = extractErrorMessage(serverErr);
+              const localMsg = extractErrorMessage(localErr);
               throw new Error(
-                `Both OCR methods failed.\nLocal: ${localMsg}\nServer: ${serverMsg}`
+                `Both OCR methods failed.\nAI Vision: ${serverMsg}\nLocal Tesseract: ${localMsg}`
               );
             }
           }

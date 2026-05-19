@@ -17,6 +17,8 @@ import {
   Cpu,
   BookOpen,
   Eye,
+  Zap,
+  AlertTriangle,
 } from 'lucide-react';
 import { Capture } from '@/lib/types';
 import { useAppStore } from '@/store';
@@ -33,12 +35,12 @@ const PHASE_INFO: Record<OCRPhase, { label: string; description: string; icon: R
   idle: { label: 'Ready', description: '', icon: null },
   'initializing-worker': {
     label: 'Loading OCR Engine',
-    description: 'Initializing Tesseract WASM engine...',
+    description: 'Initializing Tesseract WASM engine (this may take 30s+)...',
     icon: <Cpu size={12} className="animate-pulse text-primary" />,
   },
   'loading-language': {
     label: 'Loading Language Data',
-    description: 'Loading English language model (first run may take 10-30s)...',
+    description: 'Loading English language model...',
     icon: <BookOpen size={12} className="animate-pulse text-primary" />,
   },
   recognizing: {
@@ -61,7 +63,7 @@ export function OCRPanel({ capture }: OCRPanelProps) {
   });
   const [copied, setCopied] = useState(false);
   const [cachedResult, setCachedResult] = useState<OCRResult | null>(null);
-  const [selectedMode, setSelectedMode] = useState<OCRMode>('local');
+  const [selectedMode, setSelectedMode] = useState<OCRMode>('server');
 
   const {
     isProcessing,
@@ -302,8 +304,8 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)' }}
           >
             {([
-              { value: 'auto' as OCRMode, label: 'Auto', icon: <Wifi size={10} /> },
               { value: 'server' as OCRMode, label: 'AI Vision', icon: <Sparkles size={10} /> },
+              { value: 'auto' as OCRMode, label: 'Auto', icon: <Wifi size={10} /> },
               { value: 'local' as OCRMode, label: 'Local', icon: <Monitor size={10} /> },
             ]).map((opt) => (
               <button
@@ -321,6 +323,37 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             ))}
           </div>
 
+          {/* Mode-specific info */}
+          {selectedMode === 'local' && (
+            <div
+              className="flex items-start gap-2 px-3 py-2 rounded-lg"
+              style={{
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.2)',
+              }}
+            >
+              <AlertTriangle size={12} className="text-[#F59E0B] shrink-0 mt-0.5" />
+              <p className="text-[10px] text-[#F59E0B] leading-relaxed">
+                Local OCR may be slow or get stuck in Chrome extensions due to browser security restrictions. AI Vision mode is recommended for best results.
+              </p>
+            </div>
+          )}
+
+          {selectedMode === 'server' && (
+            <div
+              className="flex items-start gap-2 px-3 py-2 rounded-lg"
+              style={{
+                backgroundColor: 'rgba(34, 197, 94, 0.08)',
+                border: '1px solid rgba(34, 197, 94, 0.15)',
+              }}
+            >
+              <Zap size={12} className="text-[#22C55E] shrink-0 mt-0.5" />
+              <p className="text-[10px] text-[#22C55E] leading-relaxed">
+                Fast &amp; reliable AI-powered text extraction. Requires the SmartCapture server running locally.
+              </p>
+            </div>
+          )}
+
           <button
             onClick={handleExtract}
             className="flex items-center justify-center gap-2 w-full h-10 rounded-lg text-sm font-semibold text-white
@@ -333,8 +366,8 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             {selectedMode === 'server'
               ? 'AI Vision uses advanced AI for high-accuracy text extraction.'
               : selectedMode === 'local'
-                ? 'Local OCR uses Tesseract.js — all processing happens in your browser. First run may take 10-30s to load the engine.'
-                : 'Auto tries local Tesseract.js first, falls back to AI Vision if needed.'}
+                ? 'Local OCR uses Tesseract.js — all processing happens in your browser. May be slow or get stuck.'
+                : 'Auto tries AI Vision first, falls back to Local Tesseract.js if needed.'}
           </p>
         </div>
       )}
@@ -429,6 +462,14 @@ export function OCRPanel({ capture }: OCRPanelProps) {
               );
             })}
           </div>
+
+          {/* Timeout warning for local mode */}
+          {activeMode === 'local' && phase === 'initializing-worker' && (
+            <p className="text-center text-[10px] text-[#F59E0B]">
+              Tesseract initialization can take 30+ seconds in Chrome extensions.
+              Consider using AI Vision mode instead.
+            </p>
+          )}
 
           <button
             onClick={handleCancel}
