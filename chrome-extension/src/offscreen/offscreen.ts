@@ -3,12 +3,12 @@
  *
  * Runs Tesseract.js in a persistent offscreen document.
  * This solves the core problem: Tesseract.js Web Worker + WASM initialization
- * fails/hangs in Chrome extension popups, but works perfectly in offscreen documents.
+ * fails/hangs in Chrome extension popups, but works in offscreen documents.
  *
- * Benefits:
- * - Engine persists across popup sessions (no re-initialization)
- * - Full HTML page context (Web Workers + WASM work properly)
- * - Pre-warmed on extension install (instant OCR when user needs it)
+ * KEY FIX: We use workerBlobURL: false (Direct Worker) as the PRIMARY strategy.
+ * The Blob Worker approach (workerBlobURL: true) creates a blob with importScripts()
+ * which silently hangs in the Chrome extension offscreen context — it never resolves.
+ * The Direct Worker creates new Worker(chrome-extension://...) which works correctly.
  *
  * Messaging protocol:
  * - Receives: OCR_PREWARM, OCR_RECOGNIZE, OCR_GET_STATUS, OCR_CANCEL
@@ -36,6 +36,7 @@ interface OCRResultPayload {
   paragraphs: OCRParagraph[];
   wordCount: number;
   method: 'local';
+  processingTime?: number;
 }
 
 // Tesseract internal types
@@ -72,11 +73,13 @@ let worker: TesseractWorker | null = null;
 let currentLang: string | null = null;
 let isInitializing = false;
 let isRecognizing = false;
+let initAttempts = 0;
+const MAX_INIT_ATTEMPTS = 3;
 
 // ===== Logging =====
 
 function log(msg: string, data?: unknown): void {
-  console.log(`[SmartCapture OCR Offscreen] ${msg}`, data ?? '');
+  console.log(`[SmartCapture OCR Offscreen] ${msg}`, data !== undefined ? data : '');
 }
 
 function logError(msg: string, err?: unknown): void {
@@ -190,11 +193,43 @@ function sendError(error: string): void {
   }
 }
 
+// ===== Timeout Wrapper =====
+
+/**
+ * Wraps a promise with a timeout. If the promise doesn't resolve within
+ * the timeout period, rejects with a timeout error.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms / 1000}s`));
+    }, ms);
+
+    promise
+      .then((result) => {
+        clearTimeout(timer);
+        resolve(result);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 // ===== Worker Lifecycle =====
 
 /**
  * Initialize the Tesseract worker with the given language.
- * Tries multiple strategies to handle different Chrome extension contexts.
+ *
+ * CRITICAL: We use workerBlobURL: false (Direct Worker) as the ONLY strategy.
+ * The Blob Worker approach (workerBlobURL: true) creates a blob with
+ * importScripts("chrome-extension://...") which silently hangs in the
+ * Chrome extension offscreen document context — it never resolves.
+ *
+ * The Direct Worker creates new Worker(chrome-extension://...) which works
+ * correctly because the Worker runs in the extension's context and can
+ * load resources from the same origin.
  */
 async function initializeWorker(language: string = 'eng'): Promise<void> {
   // Already ready with the same language
@@ -204,9 +239,9 @@ async function initializeWorker(language: string = 'eng'): Promise<void> {
     return;
   }
 
-  // Already initializing
+  // Already initializing — don't start a second init
   if (isInitializing) {
-    log('Worker already initializing, skipping');
+    log('Worker already initializing, skipping duplicate request');
     return;
   }
 
@@ -223,91 +258,121 @@ async function initializeWorker(language: string = 'eng'): Promise<void> {
   }
 
   isInitializing = true;
+  initAttempts++;
   sendStatusUpdate('prewarming', 0, 'prewarming');
-  log(`Initializing Tesseract worker for language: ${language}`);
+  log(`Initializing Tesseract worker (attempt ${initAttempts}/${MAX_INIT_ATTEMPTS}) for language: ${language}`);
 
   try {
-    // Strategy 1: Blob Worker with local extension files
-    // This creates a Worker from a Blob containing importScripts(workerPath).
-    // Blob Workers can importScripts from chrome-extension:// URLs.
-    const strategies: Array<{
-      name: string;
-      options: Record<string, unknown>;
-    }> = [
-      {
-        name: 'Blob Worker (local extension files)',
-        options: {
-          workerBlobURL: true,
-          workerPath: chrome.runtime.getURL('tesseract/worker.min.js'),
-          corePath: chrome.runtime.getURL('tesseract/tesseract-core-simd-lstm.wasm.js'),
-          langPath: chrome.runtime.getURL('tesseract/langs/'),
-        },
-      },
-      {
-        name: 'Direct Worker (local extension files)',
-        options: {
+    // Build extension resource URLs
+    const workerPath = chrome.runtime.getURL('tesseract/worker.min.js');
+    const corePath = chrome.runtime.getURL('tesseract/tesseract-core-simd-lstm.wasm.js');
+    const langPath = chrome.runtime.getURL('tesseract/langs/');
+
+    log('Extension resource URLs:');
+    log('  workerPath:', workerPath);
+    log('  corePath:', corePath);
+    log('  langPath:', langPath);
+
+    // Logger function to track Tesseract's internal progress
+    const loggerFn = (m: { status: string; progress: number }) => {
+      const status = m.status;
+      const progress = Math.round(m.progress * 100);
+      log(`Tesseract status: ${status} ${progress}%`);
+
+      if (
+        status === 'loading tesseract core' ||
+        status === 'initializing tesseract' ||
+        status === 'initializing api'
+      ) {
+        sendStatusUpdate('prewarming', Math.min(progress, 99), 'initializing-worker');
+      } else if (
+        status === 'loading language traineddata' ||
+        status === 'loaded language traineddata'
+      ) {
+        sendStatusUpdate('prewarming', Math.min(progress, 99), 'loading-language');
+      } else if (status === 'recognizing text') {
+        sendProgress(progress, 'recognizing');
+      }
+    };
+
+    // STRATEGY 1: Direct Worker with local extension files (PRIMARY)
+    // This is the only strategy that works reliably in Chrome extension offscreen documents.
+    // workerBlobURL: false creates new Worker(chrome-extension://...) directly.
+    log('Attempting Direct Worker strategy (workerBlobURL: false)...');
+
+    try {
+      worker = await withTimeout(
+        createWorker(language, 1, {
           workerBlobURL: false,
-          workerPath: chrome.runtime.getURL('tesseract/worker.min.js'),
-          corePath: chrome.runtime.getURL('tesseract/tesseract-core-simd-lstm.wasm.js'),
-          langPath: chrome.runtime.getURL('tesseract/langs/'),
-        },
-      },
-      {
-        // CDN fallback — works if internet is available
-        name: 'CDN Default',
-        options: {},
-      },
-    ];
-
-    let lastError: unknown = null;
-
-    for (const strategy of strategies) {
-      log(`Trying strategy: ${strategy.name}`);
-
-      try {
-        const loggerFn = (m: { status: string; progress: number }) => {
-          const status = m.status;
-          const progress = Math.round(m.progress * 100);
-
-          log(`Tesseract status: ${status} ${progress}%`);
-
-          if (
-            status === 'loading tesseract core' ||
-            status === 'initializing tesseract' ||
-            status === 'initializing api'
-          ) {
-            sendStatusUpdate('prewarming', Math.min(progress, 99), 'initializing-worker');
-          } else if (
-            status === 'loading language traineddata' ||
-            status === 'loaded language traineddata'
-          ) {
-            sendStatusUpdate('prewarming', Math.min(progress, 99), 'loading-language');
-          } else if (status === 'recognizing text') {
-            sendProgress(progress, 'recognizing');
-          }
-        };
-
-        worker = await createWorker(language, 1, {
-          ...strategy.options,
+          workerPath,
+          corePath,
+          langPath,
           logger: loggerFn,
-        });
+        }),
+        90_000, // 90 second timeout for WASM compilation
+        'Direct Worker createWorker'
+      );
 
-        log(`Strategy "${strategy.name}" succeeded!`);
-        currentLang = language;
-        sendStatusUpdate('ready', 100, 'complete');
-        log('Tesseract worker is ready!');
-        return;
-      } catch (err) {
-        logError(`Strategy "${strategy.name}" failed:`, err);
-        lastError = err;
-        // Continue to next strategy
+      log('Direct Worker strategy SUCCEEDED!');
+      currentLang = language;
+      initAttempts = 0; // Reset on success
+      sendStatusUpdate('ready', 100, 'complete');
+      log('Tesseract worker is READY — OCR can be performed instantly!');
+      return;
+    } catch (directErr) {
+      logError('Direct Worker strategy failed:', directErr);
+      // Clean up the failed worker
+      if (worker) {
+        try { await worker.terminate(); } catch { /* ignore */ }
+        worker = null;
+      }
+    }
+
+    // STRATEGY 2: CDN Fallback
+    // Uses the CDN-hosted Tesseract files. Works if internet is available.
+    // This is a last resort — it's slower but more likely to succeed.
+    log('Attempting CDN Fallback strategy...');
+
+    try {
+      worker = await withTimeout(
+        createWorker(language, 1, {
+          logger: loggerFn,
+        }),
+        120_000, // 2 minute timeout — CDN is slower
+        'CDN Fallback createWorker'
+      );
+
+      log('CDN Fallback strategy SUCCEEDED!');
+      currentLang = language;
+      initAttempts = 0;
+      sendStatusUpdate('ready', 100, 'complete');
+      log('Tesseract worker is READY (via CDN) — OCR can be performed!');
+      return;
+    } catch (cdnErr) {
+      logError('CDN Fallback strategy failed:', cdnErr);
+      if (worker) {
+        try { await worker.terminate(); } catch { /* ignore */ }
+        worker = null;
       }
     }
 
     // All strategies failed
-    const errorMsg = lastError instanceof Error ? lastError.message : String(lastError);
-    logError(`All strategies failed. Last error: ${errorMsg}`);
+    const errorMsg = `All initialization strategies failed (attempt ${initAttempts}/${MAX_INIT_ATTEMPTS}). ` +
+      'The Direct Worker and CDN strategies both failed. ' +
+      'Please ensure the extension has access to tesseract files and/or internet.';
+    logError(errorMsg);
     sendStatusUpdate('error', 0, 'error', errorMsg);
+
+    // If we haven't exceeded max retries, schedule a retry
+    if (initAttempts < MAX_INIT_ATTEMPTS) {
+      const retryDelay = initAttempts * 5000; // 5s, 10s, 15s
+      log(`Scheduling retry in ${retryDelay / 1000}s...`);
+      setTimeout(() => {
+        if (!worker && !isInitializing) {
+          initializeWorker(language);
+        }
+      }, retryDelay);
+    }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     logError('Worker initialization error:', err);
@@ -332,6 +397,7 @@ async function recognizeImage(imageData: string, language: string = 'eng'): Prom
   try {
     // Ensure worker is ready
     if (!worker || currentLang !== language) {
+      log('Worker not ready, initializing first...');
       await initializeWorker(language);
     }
 
@@ -342,7 +408,12 @@ async function recognizeImage(imageData: string, language: string = 'eng'): Prom
 
     sendProgress(0, 'recognizing');
 
-    const result = await worker.recognize(imageData) as TesseractRecognizeResult;
+    const result = await withTimeout(
+      worker.recognize(imageData) as Promise<TesseractRecognizeResult>,
+      180_000, // 3 minute timeout for OCR recognition
+      'OCR recognize'
+    );
+
     const { data } = result;
 
     // Parse structured results
@@ -351,15 +422,18 @@ async function recognizeImage(imageData: string, language: string = 'eng'): Prom
       .split(/\s+/)
       .filter((w: string) => w.length > 0).length;
 
+    const processingTime = Date.now() - startTime;
+
     const ocrResult: OCRResultPayload = {
       text: data.text.trim(),
       confidence: Math.round(data.confidence),
       paragraphs,
       wordCount,
       method: 'local',
+      processingTime,
     };
 
-    log(`OCR complete! ${wordCount} words, ${paragraphs.length} paragraphs, ${Date.now() - startTime}ms`);
+    log(`OCR complete! ${wordCount} words, ${paragraphs.length} paragraphs, ${processingTime}ms`);
     sendResult(ocrResult);
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
@@ -388,7 +462,25 @@ async function cancelOCR(): Promise<void> {
 
   isRecognizing = false;
   isInitializing = false;
+  initAttempts = 0;
   sendStatusUpdate('idle', 0, 'idle');
+}
+
+/**
+ * Reinitialize the worker if it's in an error state.
+ */
+async function reinitializeWorker(language: string = 'eng'): Promise<void> {
+  log('Reinitializing worker...');
+  if (worker) {
+    try {
+      await worker.terminate();
+    } catch { /* ignore */ }
+    worker = null;
+    currentLang = null;
+  }
+  isInitializing = false;
+  initAttempts = 0;
+  await initializeWorker(language);
 }
 
 // ===== Message Listener =====
@@ -405,7 +497,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case 'OCR_RECOGNIZE': {
       const { imageData, language = 'eng' } = message.payload || {};
-      log(`Received OCR_RECOGNIZE`);
+      log('Received OCR_RECOGNIZE');
       recognizeImage(imageData, language);
       sendResponse({ received: true });
       return false;
@@ -417,7 +509,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         language: currentLang,
         isRecognizing,
       };
-      log(`Received OCR_GET_STATUS, responding:`, status);
+      log('Received OCR_GET_STATUS, responding:', status);
       sendResponse(status);
       return false;
     }
@@ -430,6 +522,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return true; // async response
     }
 
+    case 'OCR_REINITIALIZE': {
+      const language = message.payload?.language || 'eng';
+      log('Received OCR_REINITIALIZE');
+      reinitializeWorker(language).then(() => {
+        sendResponse({ reinitializing: true });
+      });
+      return true; // async response
+    }
+
+    case 'OCR_PING': {
+      // Simple health check — used by background to verify offscreen is alive
+      sendResponse({ alive: true, workerReady: !!worker, isInitializing, isRecognizing });
+      return false;
+    }
+
     default:
       // Not an OCR message, ignore
       return false;
@@ -439,4 +546,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 // ===== Auto Pre-warm on Load =====
 
 log('Offscreen document loaded. Pre-warming Tesseract engine...');
+log('Chrome extension context:', {
+  runtimeId: chrome.runtime.id,
+  manifestVersion: chrome.runtime.getManifest().manifest_version,
+});
+
+// Start initialization immediately — the engine will be ready when the user needs it
 initializeWorker('eng');
