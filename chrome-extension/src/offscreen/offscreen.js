@@ -40,7 +40,7 @@ var require_runtime = __commonJS({
       var defineProperty = Object.defineProperty || function(obj, key, desc) {
         obj[key] = desc.value;
       };
-      var undefined;
+      var undefined2;
       var $Symbol = typeof Symbol === "function" ? Symbol : {};
       var iteratorSymbol = $Symbol.iterator || "@@iterator";
       var asyncIteratorSymbol = $Symbol.asyncIterator || "@@asyncIterator";
@@ -257,11 +257,11 @@ var require_runtime = __commonJS({
       function maybeInvokeDelegate(delegate, context) {
         var methodName = context.method;
         var method = delegate.iterator[methodName];
-        if (method === undefined) {
+        if (method === undefined2) {
           context.delegate = null;
           if (methodName === "throw" && delegate.iterator["return"]) {
             context.method = "return";
-            context.arg = undefined;
+            context.arg = undefined2;
             maybeInvokeDelegate(delegate, context);
             if (context.method === "throw") {
               return ContinueSentinel;
@@ -294,7 +294,7 @@ var require_runtime = __commonJS({
           context.next = delegate.nextLoc;
           if (context.method !== "return") {
             context.method = "next";
-            context.arg = undefined;
+            context.arg = undefined2;
           }
         } else {
           return info;
@@ -370,7 +370,7 @@ var require_runtime = __commonJS({
                   return next2;
                 }
               }
-              next2.value = undefined;
+              next2.value = undefined2;
               next2.done = true;
               return next2;
             };
@@ -381,23 +381,23 @@ var require_runtime = __commonJS({
       }
       exports2.values = values;
       function doneResult() {
-        return { value: undefined, done: true };
+        return { value: undefined2, done: true };
       }
       Context.prototype = {
         constructor: Context,
         reset: function(skipTempReset) {
           this.prev = 0;
           this.next = 0;
-          this.sent = this._sent = undefined;
+          this.sent = this._sent = undefined2;
           this.done = false;
           this.delegate = null;
           this.method = "next";
-          this.arg = undefined;
+          this.arg = undefined2;
           this.tryEntries.forEach(resetTryEntry);
           if (!skipTempReset) {
             for (var name in this) {
               if (name.charAt(0) === "t" && hasOwn.call(this, name) && !isNaN(+name.slice(1))) {
-                this[name] = undefined;
+                this[name] = undefined2;
               }
             }
           }
@@ -422,7 +422,7 @@ var require_runtime = __commonJS({
             context.next = loc;
             if (caught) {
               context.method = "next";
-              context.arg = undefined;
+              context.arg = undefined2;
             }
             return !!caught;
           }
@@ -522,7 +522,7 @@ var require_runtime = __commonJS({
             nextLoc
           };
           if (this.method === "next") {
-            this.arg = undefined;
+            this.arg = undefined2;
           }
           return ContinueSentinel;
         }
@@ -1445,8 +1445,10 @@ var worker = null;
 var currentLang = null;
 var isInitializing = false;
 var isRecognizing = false;
+var initAttempts = 0;
+var MAX_INIT_ATTEMPTS = 3;
 function log(msg, data) {
-  console.log(`[SmartCapture OCR Offscreen] ${msg}`, data ?? "");
+  console.log(`[SmartCapture OCR Offscreen] ${msg}`, data !== void 0 ? data : "");
 }
 function logError(msg, err) {
   console.error(`[SmartCapture OCR Offscreen] ${msg}`, err);
@@ -1528,6 +1530,20 @@ function sendError(error) {
   } catch {
   }
 }
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms / 1e3}s`));
+    }, ms);
+    promise.then((result) => {
+      clearTimeout(timer);
+      resolve(result);
+    }).catch((err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
 async function initializeWorker(language = "eng") {
   if (worker && currentLang === language && !isRecognizing) {
     log("Worker already ready, skipping init");
@@ -1535,7 +1551,7 @@ async function initializeWorker(language = "eng") {
     return;
   }
   if (isInitializing) {
-    log("Worker already initializing, skipping");
+    log("Worker already initializing, skipping duplicate request");
     return;
   }
   if (worker && currentLang !== language) {
@@ -1548,67 +1564,97 @@ async function initializeWorker(language = "eng") {
     currentLang = null;
   }
   isInitializing = true;
+  initAttempts++;
   sendStatusUpdate("prewarming", 0, "prewarming");
-  log(`Initializing Tesseract worker for language: ${language}`);
+  log(`Initializing Tesseract worker (attempt ${initAttempts}/${MAX_INIT_ATTEMPTS}) for language: ${language}`);
   try {
-    const strategies = [
-      {
-        name: "Blob Worker (local extension files)",
-        options: {
-          workerBlobURL: true,
-          workerPath: chrome.runtime.getURL("tesseract/worker.min.js"),
-          corePath: chrome.runtime.getURL("tesseract/tesseract-core-simd-lstm.wasm.js"),
-          langPath: chrome.runtime.getURL("tesseract/langs/")
-        }
-      },
-      {
-        name: "Direct Worker (local extension files)",
-        options: {
-          workerBlobURL: false,
-          workerPath: chrome.runtime.getURL("tesseract/worker.min.js"),
-          corePath: chrome.runtime.getURL("tesseract/tesseract-core-simd-lstm.wasm.js"),
-          langPath: chrome.runtime.getURL("tesseract/langs/")
-        }
-      },
-      {
-        // CDN fallback — works if internet is available
-        name: "CDN Default",
-        options: {}
+    const workerPath = chrome.runtime.getURL("tesseract/worker.min.js");
+    const corePath = chrome.runtime.getURL("tesseract/tesseract-core-simd-lstm.wasm.js");
+    const langPath = chrome.runtime.getURL("tesseract/langs/");
+    log("Extension resource URLs:");
+    log("  workerPath:", workerPath);
+    log("  corePath:", corePath);
+    log("  langPath:", langPath);
+    const loggerFn = (m) => {
+      const status = m.status;
+      const progress = Math.round(m.progress * 100);
+      log(`Tesseract status: ${status} ${progress}%`);
+      if (status === "loading tesseract core" || status === "initializing tesseract" || status === "initializing api") {
+        sendStatusUpdate("prewarming", Math.min(progress, 99), "initializing-worker");
+      } else if (status === "loading language traineddata" || status === "loaded language traineddata") {
+        sendStatusUpdate("prewarming", Math.min(progress, 99), "loading-language");
+      } else if (status === "recognizing text") {
+        sendProgress(progress, "recognizing");
       }
-    ];
-    let lastError = null;
-    for (const strategy of strategies) {
-      log(`Trying strategy: ${strategy.name}`);
-      try {
-        const loggerFn = (m) => {
-          const status = m.status;
-          const progress = Math.round(m.progress * 100);
-          log(`Tesseract status: ${status} ${progress}%`);
-          if (status === "loading tesseract core" || status === "initializing tesseract" || status === "initializing api") {
-            sendStatusUpdate("prewarming", Math.min(progress, 99), "initializing-worker");
-          } else if (status === "loading language traineddata" || status === "loaded language traineddata") {
-            sendStatusUpdate("prewarming", Math.min(progress, 99), "loading-language");
-          } else if (status === "recognizing text") {
-            sendProgress(progress, "recognizing");
-          }
-        };
-        worker = await (0, import_tesseract.createWorker)(language, 1, {
-          ...strategy.options,
+    };
+    log("Attempting Direct Worker strategy (workerBlobURL: false)...");
+    try {
+      worker = await withTimeout(
+        (0, import_tesseract.createWorker)(language, 1, {
+          workerBlobURL: false,
+          workerPath,
+          corePath,
+          langPath,
           logger: loggerFn
-        });
-        log(`Strategy "${strategy.name}" succeeded!`);
-        currentLang = language;
-        sendStatusUpdate("ready", 100, "complete");
-        log("Tesseract worker is ready!");
-        return;
-      } catch (err) {
-        logError(`Strategy "${strategy.name}" failed:`, err);
-        lastError = err;
+        }),
+        9e4,
+        // 90 second timeout for WASM compilation
+        "Direct Worker createWorker"
+      );
+      log("Direct Worker strategy SUCCEEDED!");
+      currentLang = language;
+      initAttempts = 0;
+      sendStatusUpdate("ready", 100, "complete");
+      log("Tesseract worker is READY \u2014 OCR can be performed instantly!");
+      return;
+    } catch (directErr) {
+      logError("Direct Worker strategy failed:", directErr);
+      if (worker) {
+        try {
+          await worker.terminate();
+        } catch {
+        }
+        worker = null;
       }
     }
-    const errorMsg = lastError instanceof Error ? lastError.message : String(lastError);
-    logError(`All strategies failed. Last error: ${errorMsg}`);
+    log("Attempting CDN Fallback strategy...");
+    try {
+      worker = await withTimeout(
+        (0, import_tesseract.createWorker)(language, 1, {
+          logger: loggerFn
+        }),
+        12e4,
+        // 2 minute timeout — CDN is slower
+        "CDN Fallback createWorker"
+      );
+      log("CDN Fallback strategy SUCCEEDED!");
+      currentLang = language;
+      initAttempts = 0;
+      sendStatusUpdate("ready", 100, "complete");
+      log("Tesseract worker is READY (via CDN) \u2014 OCR can be performed!");
+      return;
+    } catch (cdnErr) {
+      logError("CDN Fallback strategy failed:", cdnErr);
+      if (worker) {
+        try {
+          await worker.terminate();
+        } catch {
+        }
+        worker = null;
+      }
+    }
+    const errorMsg = `All initialization strategies failed (attempt ${initAttempts}/${MAX_INIT_ATTEMPTS}). The Direct Worker and CDN strategies both failed. Please ensure the extension has access to tesseract files and/or internet.`;
+    logError(errorMsg);
     sendStatusUpdate("error", 0, "error", errorMsg);
+    if (initAttempts < MAX_INIT_ATTEMPTS) {
+      const retryDelay = initAttempts * 5e3;
+      log(`Scheduling retry in ${retryDelay / 1e3}s...`);
+      setTimeout(() => {
+        if (!worker && !isInitializing) {
+          initializeWorker(language);
+        }
+      }, retryDelay);
+    }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     logError("Worker initialization error:", err);
@@ -1626,6 +1672,7 @@ async function recognizeImage(imageData, language = "eng") {
   const startTime = Date.now();
   try {
     if (!worker || currentLang !== language) {
+      log("Worker not ready, initializing first...");
       await initializeWorker(language);
     }
     if (!worker) {
@@ -1633,18 +1680,25 @@ async function recognizeImage(imageData, language = "eng") {
       return;
     }
     sendProgress(0, "recognizing");
-    const result = await worker.recognize(imageData);
+    const result = await withTimeout(
+      worker.recognize(imageData),
+      18e4,
+      // 3 minute timeout for OCR recognition
+      "OCR recognize"
+    );
     const { data } = result;
     const paragraphs = parseParagraphs(data);
     const wordCount = data.text.split(/\s+/).filter((w) => w.length > 0).length;
+    const processingTime = Date.now() - startTime;
     const ocrResult = {
       text: data.text.trim(),
       confidence: Math.round(data.confidence),
       paragraphs,
       wordCount,
-      method: "local"
+      method: "local",
+      processingTime
     };
-    log(`OCR complete! ${wordCount} words, ${paragraphs.length} paragraphs, ${Date.now() - startTime}ms`);
+    log(`OCR complete! ${wordCount} words, ${paragraphs.length} paragraphs, ${processingTime}ms`);
     sendResult(ocrResult);
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
@@ -1666,7 +1720,22 @@ async function cancelOCR() {
   }
   isRecognizing = false;
   isInitializing = false;
+  initAttempts = 0;
   sendStatusUpdate("idle", 0, "idle");
+}
+async function reinitializeWorker(language = "eng") {
+  log("Reinitializing worker...");
+  if (worker) {
+    try {
+      await worker.terminate();
+    } catch {
+    }
+    worker = null;
+    currentLang = null;
+  }
+  isInitializing = false;
+  initAttempts = 0;
+  await initializeWorker(language);
 }
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (message.type) {
@@ -1679,7 +1748,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
     case "OCR_RECOGNIZE": {
       const { imageData, language = "eng" } = message.payload || {};
-      log(`Received OCR_RECOGNIZE`);
+      log("Received OCR_RECOGNIZE");
       recognizeImage(imageData, language);
       sendResponse({ received: true });
       return false;
@@ -1690,7 +1759,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         language: currentLang,
         isRecognizing
       };
-      log(`Received OCR_GET_STATUS, responding:`, status);
+      log("Received OCR_GET_STATUS, responding:", status);
       sendResponse(status);
       return false;
     }
@@ -1701,9 +1770,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       });
       return true;
     }
+    case "OCR_REINITIALIZE": {
+      const language = message.payload?.language || "eng";
+      log("Received OCR_REINITIALIZE");
+      reinitializeWorker(language).then(() => {
+        sendResponse({ reinitializing: true });
+      });
+      return true;
+    }
+    case "OCR_PING": {
+      sendResponse({ alive: true, workerReady: !!worker, isInitializing, isRecognizing });
+      return false;
+    }
     default:
       return false;
   }
 });
 log("Offscreen document loaded. Pre-warming Tesseract engine...");
+log("Chrome extension context:", {
+  runtimeId: chrome.runtime.id,
+  manifestVersion: chrome.runtime.getManifest().manifest_version
+});
 initializeWorker("eng");

@@ -1,89 +1,32 @@
+# SmartCapture Pro - Work Log
+
 ---
 Task ID: 1
 Agent: Main Agent
-Task: Fix Chrome Extension OCR stuck at "Initializing Tesseract WASM engine"
+Task: Fix OCR engine initialization stuck at "Loading engine..." in Chrome extension
 
 Work Log:
-- Investigated the OCR issue by analyzing the uploaded screenshot (YouTube video page captured by SmartCapture)
-- Read through useOCR.ts, OCRPanel.tsx, Tesseract.js v5 source code (createWorker.js, spawnWorker.js, worker-script/index.js, getCore.js)
-- Identified root cause: Tesseract.js Web Worker initialization hangs in Chrome extension popup due to:
-  1. The WASM core (2.8MB embedded as base64 in wasm.js) takes too long to compile
-  2. No .catch() on Core({...}) promise in worker - errors silently swallowed
-  3. 120-second timeout too long - users give up before it triggers
-  4. Chrome extension popups close when clicking outside, destroying the worker
-- Created /api/ocr server endpoint using VLM SDK for reliable AI-powered OCR
-- Rewrote useOCR.ts with:
-  - Server-first approach in Auto mode (tries AI Vision before Tesseract)
-  - Shorter per-strategy timeout (30s instead of 120s)
-  - Better error messages suggesting AI Vision mode
-  - "server" as default mode instead of "local"
-- Updated OCRPanel.tsx with:
-  - "AI Vision" as default selected mode
-  - Warning for Local mode about Chrome extension limitations
-  - Info badge for AI Vision mode reliability
-  - Better timeout warning during Tesseract initialization
-- Tested OCR API with real image - extracted 351 words in 24s successfully
-- Chrome extension builds successfully
+- Analyzed the root cause: The Blob Worker strategy (workerBlobURL: true) in offscreen.ts silently hangs in Chrome extension offscreen documents. It creates a Blob with importScripts("chrome-extension://...") which never resolves.
+- Rewrote offscreen.ts with:
+  - workerBlobURL: false (Direct Worker) as PRIMARY strategy — creates new Worker(chrome-extension://...) directly
+  - CDN fallback as secondary strategy
+  - withTimeout() wrapper on all createWorker() calls (90s for local, 120s for CDN)
+  - Retry logic with exponential backoff (5s, 10s, 15s)
+  - OCR_PING health check message type
+  - OCR_REINITIALIZE message type for error recovery
+  - Better logging of extension resource URLs
+- Updated background/index.ts with:
+  - prewarmOCREngine() function that creates offscreen document + sends OCR_PREWARM
+  - Called on chrome.runtime.onInstalled (install + update)
+  - Called on chrome.runtime.onStartup (browser startup)
+  - chrome.alarms keep-alive mechanism (every 4 minutes) to prevent service worker + offscreen from being killed
+- Rebuilt both compiled JS files with esbuild:
+  - src/offscreen/offscreen.js (57.9kb)
+  - src/background/index.js (46.5kb)
 
 Stage Summary:
-- Created /api/ocr/route.ts - VLM-powered server-side OCR endpoint
-- Rewrote chrome-extension/src/hooks/useOCR.ts - Server-first approach, better timeouts
-- Updated chrome-extension/src/components/OCRPanel.tsx - AI Vision default, warnings for local mode
-- OCR API verified working with real image data
-- Chrome extension builds and deploys successfully
-
----
-Task ID: 2
-Agent: Main Agent
-Task: Fix Local Tesseract OCR - user wants local OCR to work, not AI Vision fallback
-
-Work Log:
-- User explicitly requested local OCR focus: "For the time being, my main focus is to apply OCR locally"
-- Previous 30s timeout was too short — Tesseract WASM compilation (2.8MB) realistically needs 60-120s in Chrome extension
-- Rewrote useOCR.ts with major improvements:
-  1. Increased INIT_TIMEOUT from 30s to 120s — realistic for first-run WASM compilation
-  2. Added PREWARMING: Worker starts loading immediately when OCR panel opens, not when user clicks "Extract"
-  3. Added WorkerStatus tracking (idle/prewarming/ready/error) with status callbacks
-  4. Added workerBlobURL=true as Strategy 1 for extensions (Blob Worker may bypass some CSP issues)
-  5. Changed default mode back to "local" (user's preference)
-  6. Auto mode tries local first, then falls back to server
-  7. Added detailed console.log for every Tesseract status message
-  8. Better error messages: explain first-run takes 30-90s, subsequent runs reuse engine
-- Rewrote OCRPanel.tsx with major UX improvements:
-  1. "Local" is the default selected mode
-  2. Worker status indicator showing: idle → prewarming → ready
-  3. Elapsed time counter during prewarming and processing
-  4. "Engine ready / Instant start" badge when worker is pre-warmed
-  5. Extract button shows "Loading Engine..." when prewarming, disabled
-  6. Info box explaining first-run takes 30-90s, subsequent runs are instant
-  7. Helpful message during long initialization with "keep popup open" advice
-  8. Retry button re-triggers prewarm
-- Chrome extension builds successfully, lint passes clean
-
-Stage Summary:
-- Rewrote chrome-extension/src/hooks/useOCR.ts — Local-first, 120s timeout, prewarming, WorkerStatus
-- Rewrote chrome-extension/src/components/OCRPanel.tsx — Local default, prewarm UI, elapsed time, engine status
-- Key insight: Tesseract.js CAN work in Chrome extensions, it just needs enough time (60-120s on first run)
-- The prewarming approach means the engine starts loading as soon as the user opens the OCR panel
-- Subsequent OCR calls reuse the cached worker and are instant
----
-Task ID: 1
-Agent: Main Agent
-Task: Implement Chrome Offscreen API for Tesseract.js OCR to fix "Engine error" and pre-initialize WASM engine
-
-Work Log:
-- Analyzed the core problem: Tesseract.js Web Worker + WASM fails in Chrome extension popup (Manifest V3)
-- Created offscreen document architecture: offscreen.html + offscreen.ts (Tesseract.js engine management)
-- Updated manifest.json: added "offscreen" permission, offscreen files to web_accessible_resources
-- Added OCR message types to types.ts: OCR_PREWARM, OCR_RECOGNIZE, OCR_GET_STATUS, OCR_CANCEL, OCR_ENSURE_OFFSCREEN, OCR_STATUS_UPDATE, OCR_PROGRESS, OCR_RESULT, OCR_ERROR
-- Updated background service worker: added ensureOffscreenDocument(), OCR_ENSURE_OFFSCREEN handler, OCR message type passthrough, offscreen creation on install
-- Rewrote useOCR.ts: now uses Chrome messaging to communicate with offscreen document instead of direct Tesseract.js
-- Updated OCRPanel.tsx: simplified to Local/Server modes, updated descriptions for new architecture
-- Updated build.js: compiles offscreen.ts with esbuild, copies offscreen files to dist
-- Successfully built the extension - all assets verified
-
-Stage Summary:
-- OCR engine now runs in a persistent offscreen document (survives popup closure)
-- WASM engine is pre-warmed on extension install (instant OCR when user needs it)
-- Architecture: Popup → chrome.runtime.sendMessage → Offscreen Document (Tesseract.js) → results back via messages
-- Build succeeds, dist/ contains all required files including offscreen OCR engine
+- Key fix: Changed from workerBlobURL: true → workerBlobURL: false to prevent silent hang
+- Added timeout wrappers so strategies don't hang indefinitely
+- Added pre-initialization on extension install/startup
+- Added keep-alive alarm to prevent Chrome from killing the offscreen document
+- Files modified: src/offscreen/offscreen.ts, src/background/index.ts, src/offscreen/offscreen.js, src/background/index.js
