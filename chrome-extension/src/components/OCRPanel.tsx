@@ -15,6 +15,10 @@ import {
   CheckCircle2,
   Info,
   Zap,
+  Cloud,
+  Code2,
+  Key,
+  ExternalLink,
 } from 'lucide-react';
 import { Capture } from '@/lib/types';
 import { useAppStore } from '@/store';
@@ -31,23 +35,33 @@ const PHASE_INFO: Record<OCRPhase, { label: string; description: string; icon: R
   idle: { label: 'Ready', description: '', icon: null },
   prewarming: {
     label: 'Preparing OCR Engine',
-    description: 'Pre-loading Tesseract WASM engine in background...',
+    description: 'Pre-loading WASM engine in background...',
     icon: <Zap size={12} className="animate-pulse text-primary" />,
   },
   'initializing-worker': {
     label: 'Loading OCR Engine',
-    description: 'Compiling Tesseract WASM engine...',
+    description: 'Compiling WASM engine...',
     icon: <Zap size={12} className="animate-pulse text-primary" />,
   },
   'loading-language': {
     label: 'Loading Language Data',
-    description: 'Loading English language model...',
+    description: 'Loading language model...',
     icon: <Monitor size={12} className="animate-pulse text-primary" />,
   },
   recognizing: {
     label: 'Recognizing Text',
     description: 'Extracting text from image...',
     icon: <FileText size={12} className="animate-pulse text-primary" />,
+  },
+  'extracting-dom': {
+    label: 'Extracting Page Text',
+    description: 'Reading visible text from the page...',
+    icon: <Code2 size={12} className="animate-pulse text-primary" />,
+  },
+  uploading: {
+    label: 'Uploading to Cloud OCR',
+    description: 'Sending image for processing...',
+    icon: <Cloud size={12} className="animate-pulse text-primary" />,
   },
   complete: { label: 'Complete', description: '', icon: null },
   error: { label: 'Error', description: '', icon: null },
@@ -64,6 +78,8 @@ function getWorkerStatusUI(status: WorkerStatus): { icon: React.ReactNode; label
       return { icon: <CheckCircle2 size={10} />, label: 'Engine ready', color: 'text-[#22C55E]' };
     case 'error':
       return { icon: <AlertCircle size={10} />, label: 'Engine error', color: 'text-[#EF4444]' };
+    default:
+      return { icon: <Monitor size={10} />, label: 'Unknown', color: 'text-text-muted' };
   }
 }
 
@@ -101,7 +117,10 @@ export function OCRPanel({ capture }: OCRPanelProps) {
   });
   const [copied, setCopied] = useState(false);
   const [cachedResult, setCachedResult] = useState<OCRResult | null>(null);
-  const [selectedMode, setSelectedMode] = useState<OCRMode>('local');
+  const [selectedMode, setSelectedMode] = useState<OCRMode>('cloud');
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [apiKeySaved, setApiKeySaved] = useState(false);
 
   const {
     isProcessing,
@@ -111,12 +130,21 @@ export function OCRPanel({ capture }: OCRPanelProps) {
     mode: activeMode,
     phase,
     workerStatus,
+    cloudConfig,
+    setCloudConfig,
     extractText,
     cancel,
     clearResult,
   } = useOCR();
 
-  const elapsedStr = useElapsedTime(isProcessing || workerStatus.state === 'prewarming');
+  const elapsedStr = useElapsedTime(isProcessing);
+
+  // Pre-fill API key input from saved config
+  useEffect(() => {
+    if (cloudConfig?.apiKey) {
+      setApiKeyInput(cloudConfig.apiKey);
+    }
+  }, [cloudConfig]);
 
   // Use live OCR result or cached paragraphs
   const ocrParagraphs = useMemo(() => {
@@ -159,11 +187,26 @@ export function OCRPanel({ capture }: OCRPanelProps) {
     return null;
   }, [result, cachedResult]);
 
+  const handleSaveApiKey = useCallback(() => {
+    if (apiKeyInput.trim()) {
+      setCloudConfig({ apiKey: apiKeyInput.trim(), provider: 'ocr.space' });
+      setApiKeySaved(true);
+      setTimeout(() => {
+        setApiKeySaved(false);
+        setShowApiKeyInput(false);
+      }, 1500);
+    }
+  }, [apiKeyInput, setCloudConfig]);
+
   const handleExtract = useCallback(async () => {
-    if (!capture.imageData) return;
+    if (!capture.imageData && selectedMode !== 'dom') return;
 
     try {
-      const ocrResult = await extractText(capture.imageData, 'eng', selectedMode);
+      const ocrResult = await extractText(
+        capture.imageData || '',
+        'eng',
+        selectedMode
+      );
 
       setCachedParagraphs(ocrResult.paragraphs);
       setCachedResult(ocrResult);
@@ -240,7 +283,9 @@ export function OCRPanel({ capture }: OCRPanelProps) {
     switch (m) {
       case 'server': return 'AI Vision';
       case 'local': return 'Tesseract';
-      default: return 'Local';
+      case 'cloud': return 'Cloud OCR';
+      case 'dom': return 'Page Text';
+      default: return m;
     }
   };
 
@@ -249,6 +294,8 @@ export function OCRPanel({ capture }: OCRPanelProps) {
     switch (m) {
       case 'server': return <Zap size={9} />;
       case 'local': return <Monitor size={9} />;
+      case 'cloud': return <Cloud size={9} />;
+      case 'dom': return <Code2 size={9} />;
       default: return <Monitor size={9} />;
     }
   };
@@ -257,6 +304,15 @@ export function OCRPanel({ capture }: OCRPanelProps) {
   const workerUI = getWorkerStatusUI(workerStatus);
   const isWorkerPrewarming = workerStatus.state === 'prewarming';
   const isWorkerReady = workerStatus.state === 'ready';
+  const hasCloudKey = !!cloudConfig?.apiKey;
+
+  // Mode definitions for the selector
+  const modeOptions: Array<{ value: OCRMode; label: string; icon: React.ReactNode; badge?: string }> = [
+    { value: 'cloud', label: 'Cloud OCR', icon: <Cloud size={10} />, badge: 'Recommended' },
+    { value: 'dom', label: 'Page Text', icon: <Code2 size={10} />, badge: 'Offline' },
+    { value: 'server', label: 'AI Vision', icon: <Zap size={10} /> },
+    { value: 'local', label: 'Tesseract', icon: <Monitor size={10} />, badge: 'Beta' },
+  ];
 
   return (
     <div className="p-4">
@@ -347,14 +403,11 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             className="flex items-center gap-1 p-1 rounded-lg"
             style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)' }}
           >
-            {([
-              { value: 'local' as OCRMode, label: 'Local OCR', icon: <Monitor size={10} /> },
-              { value: 'server' as OCRMode, label: 'AI Vision', icon: <Zap size={10} /> },
-            ]).map((opt) => (
+            {modeOptions.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => setSelectedMode(opt.value)}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-medium transition-smooth cursor-pointer flex-1 justify-center ${
+                className={`relative flex items-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium transition-smooth cursor-pointer flex-1 justify-center ${
                   selectedMode === opt.value
                     ? 'bg-primary text-white'
                     : 'text-text-muted hover:text-text-secondary'
@@ -362,9 +415,146 @@ export function OCRPanel({ capture }: OCRPanelProps) {
               >
                 {opt.icon}
                 {opt.label}
+                {opt.badge && selectedMode === opt.value && (
+                  <span className="absolute -top-1.5 -right-1 px-1 py-0 rounded text-[7px] font-bold bg-[#22C55E] text-white leading-tight">
+                    {opt.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
+
+          {/* Cloud OCR - API Key section */}
+          {selectedMode === 'cloud' && (
+            <div className="space-y-2">
+              {hasCloudKey ? (
+                <div
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                  style={{
+                    backgroundColor: 'rgba(34, 197, 94, 0.08)',
+                    border: '1px solid rgba(34, 197, 94, 0.15)',
+                  }}
+                >
+                  <CheckCircle2 size={12} className="text-[#22C55E] shrink-0" />
+                  <span className="text-[10px] text-[#22C55E]">API key configured</span>
+                  <button
+                    onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+                    className="ml-auto text-[10px] text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="space-y-2 px-3 py-2.5 rounded-lg"
+                  style={{
+                    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                    border: '1px solid rgba(245, 158, 11, 0.15)',
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Key size={12} className="text-[#F59E0B] shrink-0" />
+                    <span className="text-[10px] font-medium text-[#F59E0B]">API Key Required</span>
+                  </div>
+                  <p className="text-[10px] text-text-secondary leading-relaxed">
+                    Cloud OCR uses OCR.space for high-accuracy text extraction. Get a free API key (25K requests/month) to get started.
+                  </p>
+                  <a
+                    href="https://ocr.space/ocrapi/freekey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary-dark transition-colors"
+                  >
+                    <ExternalLink size={9} />
+                    Get free API key
+                  </a>
+                  <div className="flex gap-2 mt-1">
+                    <input
+                      type="password"
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      placeholder="Enter your OCR.space API key"
+                      className="flex-1 px-2 py-1.5 rounded-md text-[10px] bg-surface-elevated text-text-primary border border-white/10 focus:border-primary focus:outline-none placeholder:text-text-muted"
+                    />
+                    <button
+                      onClick={handleSaveApiKey}
+                      disabled={!apiKeyInput.trim()}
+                      className="px-3 py-1.5 rounded-md text-[10px] font-medium bg-primary text-white hover:bg-primary-dark transition-smooth cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {apiKeySaved ? <Check size={10} /> : 'Save'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {showApiKeyInput && hasCloudKey && (
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    placeholder="Enter new OCR.space API key"
+                    className="flex-1 px-2 py-1.5 rounded-md text-[10px] bg-surface-elevated text-text-primary border border-white/10 focus:border-primary focus:outline-none placeholder:text-text-muted"
+                  />
+                  <button
+                    onClick={handleSaveApiKey}
+                    disabled={!apiKeyInput.trim()}
+                    className="px-3 py-1.5 rounded-md text-[10px] font-medium bg-primary text-white hover:bg-primary-dark transition-smooth cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {apiKeySaved ? <Check size={10} /> : 'Save'}
+                  </button>
+                </div>
+              )}
+
+              <div
+                className="flex items-start gap-2 px-3 py-2 rounded-lg"
+                style={{
+                  backgroundColor: 'rgba(6, 182, 212, 0.08)',
+                  border: '1px solid rgba(6, 182, 212, 0.15)',
+                }}
+              >
+                <Cloud size={12} className="text-primary shrink-0 mt-0.5" />
+                <p className="text-[10px] text-primary/80 leading-relaxed">
+                  Cloud OCR provides the highest accuracy using OCR.space Engine 2, optimized for screenshots and digital content. Requires internet connection.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* DOM Extraction info */}
+          {selectedMode === 'dom' && (
+            <div className="space-y-2">
+              <div
+                className="flex items-start gap-2 px-3 py-2 rounded-lg"
+                style={{
+                  backgroundColor: 'rgba(34, 197, 94, 0.08)',
+                  border: '1px solid rgba(34, 197, 94, 0.15)',
+                }}
+              >
+                <Code2 size={12} className="text-[#22C55E] shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[10px] text-[#22C55E] leading-relaxed">
+                    Page Text extraction reads visible text directly from the web page DOM — no image processing needed. Works offline, no API required.
+                  </p>
+                  <p className="text-[10px] text-text-muted mt-1">
+                    Best for: Screenshots of web pages with text content
+                  </p>
+                </div>
+              </div>
+              <div
+                className="flex items-start gap-2 px-3 py-2 rounded-lg"
+                style={{
+                  backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px solid rgba(245, 158, 11, 0.15)',
+                }}
+              >
+                <Info size={12} className="text-[#F59E0B] shrink-0 mt-0.5" />
+                <p className="text-[10px] text-[#F59E0B]/80 leading-relaxed">
+                  Note: This extracts text from the active tab, not from the captured image. It works best when the captured page is still open.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Worker status for Local mode */}
           {selectedMode === 'local' && (
@@ -396,22 +586,7 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             </div>
           )}
 
-          {/* Mode info */}
-          {selectedMode === 'local' && !isWorkerReady && !isWorkerPrewarming && (
-            <div
-              className="flex items-start gap-2 px-3 py-2 rounded-lg"
-              style={{
-                backgroundColor: 'rgba(6, 182, 212, 0.08)',
-                border: '1px solid rgba(6, 182, 212, 0.15)',
-              }}
-            >
-              <Info size={12} className="text-primary shrink-0 mt-0.5" />
-              <p className="text-[10px] text-primary/80 leading-relaxed">
-                The OCR engine runs in a persistent background process and stays ready between sessions. First-time startup takes a few seconds to load the WASM engine.
-              </p>
-            </div>
-          )}
-
+          {/* Server mode info */}
           {selectedMode === 'server' && (
             <div
               className="flex items-start gap-2 px-3 py-2 rounded-lg"
@@ -427,22 +602,57 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             </div>
           )}
 
+          {/* Mode info for Local when not ready */}
+          {selectedMode === 'local' && !isWorkerReady && !isWorkerPrewarming && (
+            <div
+              className="flex items-start gap-2 px-3 py-2 rounded-lg"
+              style={{
+                backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.15)',
+              }}
+            >
+              <AlertCircle size={12} className="text-[#F59E0B] shrink-0 mt-0.5" />
+              <p className="text-[10px] text-[#F59E0B]/80 leading-relaxed">
+                Tesseract.js may hang during WASM engine initialization in Chrome extensions. For reliable OCR, use Cloud OCR mode instead.
+              </p>
+            </div>
+          )}
+
           <button
             onClick={handleExtract}
-            disabled={isWorkerPrewarming && selectedMode === 'local'}
+            disabled={
+              (isWorkerPrewarming && selectedMode === 'local') ||
+              (selectedMode === 'cloud' && !hasCloudKey)
+            }
             className="flex items-center justify-center gap-2 w-full h-10 rounded-lg text-sm font-semibold text-white
               bg-primary hover:bg-primary-dark active:bg-primary-dark transition-smooth cursor-pointer shadow-sm
               disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {selectedMode === 'server' ? <Zap size={16} /> : isWorkerReady ? <FileText size={16} /> : <Loader2 size={16} className="animate-spin" />}
-            {isWorkerPrewarming && selectedMode !== 'server'
+            {selectedMode === 'cloud' ? (
+              <Cloud size={16} />
+            ) : selectedMode === 'dom' ? (
+              <Code2 size={16} />
+            ) : selectedMode === 'server' ? (
+              <Zap size={16} />
+            ) : isWorkerReady ? (
+              <FileText size={16} />
+            ) : (
+              <Loader2 size={16} className="animate-spin" />
+            )}
+            {isWorkerPrewarming && selectedMode === 'local'
               ? 'Loading Engine...'
-              : 'Extract Text from Image'}
+              : selectedMode === 'cloud' && !hasCloudKey
+                ? 'Set API Key First'
+                : 'Extract Text'}
           </button>
           <p className="text-center text-[10px] text-text-muted py-2">
-            {selectedMode === 'server'
-              ? 'AI Vision uses advanced AI for high-accuracy text extraction.'
-              : 'Local OCR uses Tesseract.js — all processing happens in your browser. No data sent to servers.'}
+            {selectedMode === 'cloud'
+              ? 'Cloud OCR uses OCR.space for high-accuracy extraction. Requires internet & free API key.'
+              : selectedMode === 'dom'
+                ? 'Page Text reads directly from the web page. Fully offline, no API needed.'
+                : selectedMode === 'server'
+                  ? 'AI Vision uses advanced AI for high-accuracy text extraction via your local server.'
+                  : 'Local OCR uses Tesseract.js — all processing in your browser. May be unreliable in extensions.'}
           </p>
         </div>
       )}
@@ -487,60 +697,12 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             />
           </div>
 
-          {/* Phase steps indicator */}
-          <div className="flex items-center gap-1 justify-center">
-            {(['initializing-worker', 'loading-language', 'recognizing'] as OCRPhase[]).map((p, i) => {
-              const phaseOrder = ['initializing-worker', 'loading-language', 'recognizing'];
-              const currentIdx = phaseOrder.indexOf(phase);
-              const thisIdx = i;
-              const isDone = currentIdx > thisIdx;
-              const isCurrent = phase === p;
-
-              return (
-                <React.Fragment key={p}>
-                  {i > 0 && (
-                    <div
-                      className="h-px w-4"
-                      style={{
-                        backgroundColor: isDone
-                          ? 'var(--color-primary, #06b6d4)'
-                          : 'rgba(51, 65, 85, 0.6)',
-                      }}
-                    />
-                  )}
-                  <div className="flex items-center gap-1">
-                    <div
-                      className="w-1.5 h-1.5 rounded-full transition-all duration-300"
-                      style={{
-                        backgroundColor: isDone
-                          ? 'var(--color-primary, #06b6d4)'
-                          : isCurrent
-                            ? 'var(--color-primary, #06b6d4)'
-                            : 'rgba(51, 65, 85, 0.6)',
-                        boxShadow: isCurrent
-                          ? '0 0 6px var(--color-primary, #06b6d4)'
-                          : 'none',
-                      }}
-                    />
-                    <span
-                      className={`text-[9px] transition-colors ${
-                        isDone
-                          ? 'text-primary'
-                          : isCurrent
-                            ? 'text-text-primary'
-                            : 'text-text-muted'
-                      }`}
-                    >
-                      {p === 'initializing-worker'
-                        ? 'Engine'
-                        : p === 'loading-language'
-                          ? 'Language'
-                          : 'Recognizing'}
-                    </span>
-                  </div>
-                </React.Fragment>
-              );
-            })}
+          {/* Mode badge during processing */}
+          <div className="flex items-center justify-center gap-2">
+            {getModeIcon(activeMode)}
+            <span className="text-[10px] text-text-muted">
+              Using {getModeLabel(activeMode)}
+            </span>
           </div>
 
           <button

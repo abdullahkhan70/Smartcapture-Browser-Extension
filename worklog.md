@@ -31,3 +31,32 @@ Stage Summary:
 - All 3 initialization strategies now use workerBlobURL: false (critical fix)
 - Pre-flight file verification added before attempting Worker creation
 - Extension builds successfully with all tesseract assets verified
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Implement alternative OCR solutions (Cloud OCR + DOM Extraction) as Tesseract.js alternatives for MVP
+
+Work Log:
+- Analyzed all client-side OCR alternatives to Tesseract.js
+- Identified OCR.space Cloud API as the best MVP solution (high accuracy, free tier, no WASM issues)
+- Identified DOM Text Extraction as the best truly offline solution for web page screenshots
+- Rewrote useOCR.ts with 4 OCR modes: cloud, dom, server, local
+- Added extractTextViaCloud() function using OCR.space Engine 2 API (optimized for screenshots)
+- Added extractTextViaDOM() function using chrome.scripting.executeScript for text extraction
+- Added API key management (stored in chrome.storage.local, loaded on mount)
+- Added new OCRPhase types: 'extracting-dom', 'uploading'
+- Added new OCRMode types: 'cloud', 'dom'
+- Updated OCRResult method type to include 'cloud' | 'dom'
+- Rewrote OCRPanel.tsx with 4-mode selector (Cloud OCR, Page Text, AI Vision, Tesseract)
+- Added API key input UI with save/change functionality
+- Added mode-specific info panels with badges (Recommended, Offline, Beta)
+- Fixed TypeScript errors (missing default case in switch, storage type casting)
+- Built Chrome extension successfully with all changes verified
+
+Stage Summary:
+- Cloud OCR mode: Uses OCR.space Engine 2 API (free, 25K requests/month, high accuracy for screenshots)
+- DOM Extraction mode: Truly offline, reads visible text from web page DOM, no WASM/API needed
+- API key management: Persisted in chrome.storage.local, configurable from UI
+- OCRPanel has 4 modes with visual badges and contextual help text
+- Extension builds successfully: popup.js (470KB), all tesseract assets verified
