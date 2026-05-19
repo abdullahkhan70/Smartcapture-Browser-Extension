@@ -1,11 +1,11 @@
-// chrome-extension/src/lib/constants.ts
+// src/lib/constants.ts
 var MIN_SCROLL_OVERLAP = 0.25;
 var SCROLL_SETTLE_DELAY = 200;
 var MAX_CANVAS_HEIGHT = 15e3;
 var THUMBNAIL_MAX_WIDTH = 300;
 var THUMBNAIL_MAX_HEIGHT = 200;
 
-// chrome-extension/src/lib/capture.ts
+// src/lib/capture.ts
 function calculateOverlap(fixedElements, viewportHeight) {
   let topOverlap = 0;
   let bottomOverlap = 0;
@@ -324,7 +324,7 @@ function buildCaptureObject(imageDataURL, thumbnailDataURL, pageDimensions, page
   };
 }
 
-// chrome-extension/src/background/index.ts
+// src/background/index.ts
 function log(message, data) {
   console.log(`[SmartCapture BG] ${message}`, data ?? "");
 }

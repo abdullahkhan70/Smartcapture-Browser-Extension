@@ -1,4 +1,4 @@
-// chrome-extension/src/content/index.ts
+// src/content/index.ts
 function log(message, data) {
   console.log(`[SmartCapture CS] ${message}`, data ?? "");
 }

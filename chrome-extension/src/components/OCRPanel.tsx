@@ -11,10 +11,16 @@ import {
   X,
   Clock,
   Hash,
+  Sparkles,
+  Monitor,
+  Wifi,
+  Cpu,
+  BookOpen,
+  Eye,
 } from 'lucide-react';
 import { Capture } from '@/lib/types';
 import { useAppStore } from '@/store';
-import { useOCR, OCRResult, OCRParagraph } from '@/hooks/useOCR';
+import { useOCR, OCRResult, OCRParagraph, OCRMode, OCRPhase } from '@/hooks/useOCR';
 import { exportAsText } from '@/lib/export';
 import { storage } from '@/lib/storage';
 
@@ -22,11 +28,32 @@ interface OCRPanelProps {
   capture: Capture;
 }
 
+/** Human-readable labels for each OCR phase */
+const PHASE_INFO: Record<OCRPhase, { label: string; description: string; icon: React.ReactNode }> = {
+  idle: { label: 'Ready', description: '', icon: null },
+  'initializing-worker': {
+    label: 'Loading OCR Engine',
+    description: 'Initializing Tesseract WASM engine...',
+    icon: <Cpu size={12} className="animate-pulse text-primary" />,
+  },
+  'loading-language': {
+    label: 'Loading Language Data',
+    description: 'Loading English language model (first run may take 10-30s)...',
+    icon: <BookOpen size={12} className="animate-pulse text-primary" />,
+  },
+  recognizing: {
+    label: 'Recognizing Text',
+    description: 'Extracting text from image...',
+    icon: <Eye size={12} className="animate-pulse text-primary" />,
+  },
+  complete: { label: 'Complete', description: '', icon: null },
+  error: { label: 'Error', description: '', icon: null },
+};
+
 export function OCRPanel({ capture }: OCRPanelProps) {
   const goBack = useAppStore((s) => s.goBack);
   const updateCapture = useAppStore((s) => s.updateCapture);
   const [cachedParagraphs, setCachedParagraphs] = useState<OCRParagraph[]>(() => {
-    // Initialize from capture's existing OCR text if available
     if (capture.ocrText) {
       return [{ text: capture.ocrText, confidence: 92, bbox: { x: 0, y: 0, width: 0, height: 0 }, words: [] }];
     }
@@ -34,12 +61,15 @@ export function OCRPanel({ capture }: OCRPanelProps) {
   });
   const [copied, setCopied] = useState(false);
   const [cachedResult, setCachedResult] = useState<OCRResult | null>(null);
+  const [selectedMode, setSelectedMode] = useState<OCRMode>('local');
 
   const {
     isProcessing,
     progress,
     result,
     error,
+    mode: activeMode,
+    phase,
     extractText,
     cancel,
     clearResult,
@@ -80,17 +110,21 @@ export function OCRPanel({ capture }: OCRPanelProps) {
     return 0;
   }, [result, cachedResult, ocrParagraphs]);
 
+  const usedMethod = useMemo(() => {
+    if (result?.method) return result.method;
+    if (cachedResult?.method) return cachedResult.method;
+    return null;
+  }, [result, cachedResult]);
+
   const handleExtract = useCallback(async () => {
     if (!capture.imageData) return;
 
     try {
-      const ocrResult = await extractText(capture.imageData);
+      const ocrResult = await extractText(capture.imageData, 'eng', selectedMode);
 
-      // Update cached state
       setCachedParagraphs(ocrResult.paragraphs);
       setCachedResult(ocrResult);
 
-      // Save OCR text to storage
       if (capture.id) {
         await storage.updateOCRText(capture.id, ocrResult.text);
         updateCapture(capture.id, { ocrText: ocrResult.text });
@@ -98,7 +132,7 @@ export function OCRPanel({ capture }: OCRPanelProps) {
     } catch {
       // Error is already set in the hook
     }
-  }, [capture.imageData, capture.id, extractText, updateCapture]);
+  }, [capture.imageData, capture.id, extractText, updateCapture, selectedMode]);
 
   const handleCancel = useCallback(async () => {
     await cancel();
@@ -125,16 +159,13 @@ export function OCRPanel({ capture }: OCRPanelProps) {
     exportAsText(fullText, `ocr-${date}.txt`);
   }, [fullText, capture.timestamp]);
 
-  // Error state from the hook (need local reference for retry)
   const [localError, setLocalError] = useState<string | null>(null);
 
   const handleRetry = useCallback(() => {
     clearResult();
     setLocalError(null);
-    // Reset hook state by calling clearResult
   }, [clearResult]);
 
-  // Sync hook error to local state
   React.useEffect(() => {
     if (error) setLocalError(error);
   }, [error]);
@@ -161,6 +192,26 @@ export function OCRPanel({ capture }: OCRPanelProps) {
     return `${(ms / 1000).toFixed(1)}s`;
   };
 
+  const getModeLabel = (m: OCRMode | null): string => {
+    if (!m) return '';
+    switch (m) {
+      case 'server': return 'AI Vision';
+      case 'local': return 'Tesseract';
+      default: return 'Auto';
+    }
+  };
+
+  const getModeIcon = (m: OCRMode | null) => {
+    if (!m) return null;
+    switch (m) {
+      case 'server': return <Sparkles size={9} />;
+      case 'local': return <Monitor size={9} />;
+      default: return <Wifi size={9} />;
+    }
+  };
+
+  const currentPhaseInfo = PHASE_INFO[phase];
+
   return (
     <div className="p-4">
       {/* Header */}
@@ -185,11 +236,7 @@ export function OCRPanel({ capture }: OCRPanelProps) {
                 bg-surface-elevated text-text-secondary hover:text-text-primary hover:bg-surface-hover
                 transition-smooth cursor-pointer"
             >
-              {copied ? (
-                <Check size={11} className="text-[#22C55E]" />
-              ) : (
-                <Copy size={11} />
-              )}
+              {copied ? <Check size={11} className="text-[#22C55E]" /> : <Copy size={11} />}
               {copied ? 'Copied' : 'Copy All'}
             </button>
             <button
@@ -220,7 +267,7 @@ export function OCRPanel({ capture }: OCRPanelProps) {
               <p className="text-xs font-semibold text-[#EF4444] mb-1">
                 Extraction Failed
               </p>
-              <p className="text-[11px] text-text-secondary leading-relaxed break-words">
+              <p className="text-[11px] text-text-secondary leading-relaxed break-words whitespace-pre-line">
                 {localError}
               </p>
               <div className="flex items-center gap-2 mt-3">
@@ -249,34 +296,74 @@ export function OCRPanel({ capture }: OCRPanelProps) {
       {/* Extract Button (Empty State) */}
       {ocrParagraphs.length === 0 && !isProcessing && !localError && (
         <div className="space-y-3">
+          {/* OCR Mode Selector */}
+          <div
+            className="flex items-center gap-1 p-1 rounded-lg"
+            style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)' }}
+          >
+            {([
+              { value: 'auto' as OCRMode, label: 'Auto', icon: <Wifi size={10} /> },
+              { value: 'server' as OCRMode, label: 'AI Vision', icon: <Sparkles size={10} /> },
+              { value: 'local' as OCRMode, label: 'Local', icon: <Monitor size={10} /> },
+            ]).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setSelectedMode(opt.value)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-medium transition-smooth cursor-pointer flex-1 justify-center ${
+                  selectedMode === opt.value
+                    ? 'bg-primary text-white'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+              >
+                {opt.icon}
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
           <button
             onClick={handleExtract}
             className="flex items-center justify-center gap-2 w-full h-10 rounded-lg text-sm font-semibold text-white
               bg-primary hover:bg-primary-dark active:bg-primary-dark transition-smooth cursor-pointer shadow-sm"
           >
-            <FileText size={16} />
+            {selectedMode === 'server' ? <Sparkles size={16} /> : <FileText size={16} />}
             Extract Text from Image
           </button>
           <p className="text-center text-[10px] text-text-muted py-3">
-            Click Extract to analyze this screenshot with Tesseract.js OCR.
-            <br />
-            All processing happens locally in your browser.
+            {selectedMode === 'server'
+              ? 'AI Vision uses advanced AI for high-accuracy text extraction.'
+              : selectedMode === 'local'
+                ? 'Local OCR uses Tesseract.js — all processing happens in your browser. First run may take 10-30s to load the engine.'
+                : 'Auto tries local Tesseract.js first, falls back to AI Vision if needed.'}
           </p>
         </div>
       )}
 
-      {/* Progress Bar */}
+      {/* Progress Bar with Phase Details */}
       {isProcessing && (
-        <div className="space-y-2 mb-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-text-secondary font-medium flex items-center gap-1.5">
-              <Loader2 size={12} className="animate-spin text-primary" />
-              Processing image...
-            </span>
+        <div className="space-y-3 mb-3">
+          {/* Phase indicator */}
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-lg"
+            style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)' }}
+          >
+            {currentPhaseInfo.icon}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-text-primary">
+                {currentPhaseInfo.label}
+              </p>
+              {currentPhaseInfo.description && (
+                <p className="text-[10px] text-text-muted mt-0.5 truncate">
+                  {currentPhaseInfo.description}
+                </p>
+              )}
+            </div>
             <span className="text-xs text-primary font-mono tabular-nums">
               {progress}%
             </span>
           </div>
+
+          {/* Progress bar */}
           <div
             className="w-full h-1.5 rounded-full overflow-hidden"
             style={{ backgroundColor: 'rgba(51, 65, 85, 0.8)' }}
@@ -286,6 +373,63 @@ export function OCRPanel({ capture }: OCRPanelProps) {
               style={{ width: `${progress}%` }}
             />
           </div>
+
+          {/* Phase steps indicator */}
+          <div className="flex items-center gap-1 justify-center">
+            {(['initializing-worker', 'loading-language', 'recognizing'] as OCRPhase[]).map((p, i) => {
+              const phaseOrder = ['initializing-worker', 'loading-language', 'recognizing'];
+              const currentIdx = phaseOrder.indexOf(phase);
+              const thisIdx = i;
+              const isDone = currentIdx > thisIdx;
+              const isCurrent = phase === p;
+
+              return (
+                <React.Fragment key={p}>
+                  {i > 0 && (
+                    <div
+                      className="h-px w-4"
+                      style={{
+                        backgroundColor: isDone
+                          ? 'var(--color-primary, #06b6d4)'
+                          : 'rgba(51, 65, 85, 0.6)',
+                      }}
+                    />
+                  )}
+                  <div className="flex items-center gap-1">
+                    <div
+                      className="w-1.5 h-1.5 rounded-full transition-all duration-300"
+                      style={{
+                        backgroundColor: isDone
+                          ? 'var(--color-primary, #06b6d4)'
+                          : isCurrent
+                            ? 'var(--color-primary, #06b6d4)'
+                            : 'rgba(51, 65, 85, 0.6)',
+                        boxShadow: isCurrent
+                          ? '0 0 6px var(--color-primary, #06b6d4)'
+                          : 'none',
+                      }}
+                    />
+                    <span
+                      className={`text-[9px] transition-colors ${
+                        isDone
+                          ? 'text-primary'
+                          : isCurrent
+                            ? 'text-text-primary'
+                            : 'text-text-muted'
+                      }`}
+                    >
+                      {p === 'initializing-worker'
+                        ? 'Engine'
+                        : p === 'loading-language'
+                          ? 'Language'
+                          : 'Recognizing'}
+                    </span>
+                  </div>
+                </React.Fragment>
+              );
+            })}
+          </div>
+
           <button
             onClick={handleCancel}
             className="text-[10px] text-text-muted hover:text-error transition-colors cursor-pointer flex items-center gap-1 mx-auto mt-1"
@@ -306,24 +450,24 @@ export function OCRPanel({ capture }: OCRPanelProps) {
           >
             <div className="flex items-center gap-1">
               <Hash size={10} className="text-text-muted" />
-              <span className="text-[10px] text-text-muted">
-                {wordCount} words
-              </span>
+              <span className="text-[10px] text-text-muted">{wordCount} words</span>
             </div>
             {processingTime && (
               <div className="flex items-center gap-1">
                 <Clock size={10} className="text-text-muted" />
-                <span className="text-[10px] text-text-muted">
-                  {formatTime(processingTime)}
-                </span>
+                <span className="text-[10px] text-text-muted">{formatTime(processingTime)}</span>
+              </div>
+            )}
+            {usedMethod && (
+              <div className="flex items-center gap-1">
+                {getModeIcon(usedMethod)}
+                <span className="text-[10px] text-text-muted">{getModeLabel(usedMethod)}</span>
               </div>
             )}
             <div className="flex items-center gap-1 ml-auto">
               <div
                 className="w-1.5 h-1.5 rounded-full"
-                style={{
-                  backgroundColor: getConfidenceColor(overallConfidence),
-                }}
+                style={{ backgroundColor: getConfidenceColor(overallConfidence) }}
               />
               <span
                 className="text-[10px] font-medium"
@@ -347,19 +491,13 @@ export function OCRPanel({ capture }: OCRPanelProps) {
               <div
                 key={index}
                 className="pl-3 py-1"
-                style={{
-                  borderLeft: `3px solid ${getConfidenceColor(para.confidence)}`,
-                }}
+                style={{ borderLeft: `3px solid ${getConfidenceColor(para.confidence)}` }}
               >
-                <p className="text-xs text-text-secondary leading-relaxed">
-                  {para.text}
-                </p>
+                <p className="text-xs text-text-secondary leading-relaxed">{para.text}</p>
                 <div className="flex items-center gap-1.5 mt-1">
                   <div
                     className="w-1.5 h-1.5 rounded-full"
-                    style={{
-                      backgroundColor: getConfidenceColor(para.confidence),
-                    }}
+                    style={{ backgroundColor: getConfidenceColor(para.confidence) }}
                   />
                   <span
                     className="text-[9px] font-medium"
@@ -368,9 +506,7 @@ export function OCRPanel({ capture }: OCRPanelProps) {
                     {getConfidenceLabel(para.confidence)} ({para.confidence}%)
                   </span>
                   {para.words.length > 0 && (
-                    <span className="text-[9px] text-text-muted">
-                      {para.words.length} words
-                    </span>
+                    <span className="text-[9px] text-text-muted">{para.words.length} words</span>
                   )}
                 </div>
               </div>
@@ -388,14 +524,9 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             <button
               onClick={handleExtract}
               disabled={isProcessing}
-              className="flex items-center gap-1 text-[10px] text-primary hover:text-primary-dark transition-colors cursor-pointer
-                disabled:opacity-50"
+              className="flex items-center gap-1 text-[10px] text-primary hover:text-primary-dark transition-colors cursor-pointer disabled:opacity-50"
             >
-              {isProcessing ? (
-                <Loader2 size={10} className="animate-spin" />
-              ) : (
-                <FileText size={10} />
-              )}
+              {isProcessing ? <Loader2 size={10} className="animate-spin" /> : <FileText size={10} />}
               Re-extract
             </button>
           </div>

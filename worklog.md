@@ -317,3 +317,43 @@ Stage Summary:
 - Key OCR components: useOCR hook, OCRPanel component, storage integration
 - Dev server running on port 3000
 - No code pushed to GitHub
+
+---
+Task ID: 12
+Agent: Main Agent
+Task: Fix "OCR failed: Unknown OCR error" when applying OCR to captured image
+
+Work Log:
+- Investigated the root cause by tracing through Tesseract.js v5.1.1 source code:
+  1. **Missing `workerBlobURL: false`**: Original code did NOT set this. Tesseract.js v5 defaults to `workerBlobURL: true`, which creates a Blob URL Worker. Chrome Extension MV3 CSP blocks Blob URL Workers → DOMException.
+  2. **DOMException not handled**: `err instanceof Error ? err.message : 'Unknown OCR error'` — DOMException is NOT an Error instance → "Unknown OCR error"
+  3. **No fallback strategies**: If worker creation fails, no alternative approach
+  4. **No progress feedback during initialization**: User sees 0% for 10-30s
+  5. **Worker created fresh every time**: Each call re-initializes (10-30s)
+
+- Rewrote `chrome-extension/src/hooks/useOCR.ts`:
+  - **Multiple worker creation strategies** with automatic fallback: (1) Extension local + workerBlobURL=false, (2) Public local + workerBlobURL=false, (3) Default CDN
+  - **TesseractWorkerManager singleton** — worker kept alive between calls
+  - **Comprehensive error extraction**: handles DOMException, string, number, objects, toString, JSON.stringify, null, undefined
+  - **OCRPhase tracking**: idle → initializing-worker → loading-language → recognizing → complete
+  - **Timeout protection**: 120s init, 120s recognition
+  - **Console logging**: Every error logged with full details
+  - **Auto mode tries local first** — better for offline/local experience
+
+- Rewrote `chrome-extension/src/components/OCRPanel.tsx`:
+  - **3-step phase indicator** (Engine → Language → Recognizing) with glow effects
+  - **Phase descriptions and icons** (Cpu, BookOpen, Eye)
+  - **Default mode: "Local"** (user wants local OCR)
+  - **Multi-line error display** with whitespace-pre-line
+
+- Chrome Extension build: ✅ Successful
+- No code pushed to GitHub
+
+Stage Summary:
+- **Root cause fixed**: `workerBlobURL: false` + multiple fallback strategies
+- **Error handling rewritten**: Handles ALL error types including DOMException
+- **Worker reuse**: Singleton pattern — near-instant subsequent calls
+- **Phase visibility**: 3-step progress indicator
+- **Timeout protection**: No more hanging forever
+- Files modified: `chrome-extension/src/hooks/useOCR.ts`, `chrome-extension/src/components/OCRPanel.tsx`
+- Build: ✅ Successful
