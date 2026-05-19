@@ -373,6 +373,26 @@ function sendToPopup(message) {
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+async function ensureOffscreenDocument() {
+  try {
+    const existingContexts = await chrome.runtime.getContexts({
+      contextTypes: ["OFFSCREEN_DOCUMENT"]
+    });
+    if (existingContexts.length > 0) {
+      log("Offscreen document already exists");
+      return;
+    }
+    log("Creating offscreen document for OCR engine...");
+    await chrome.offscreen.createDocument({
+      url: "src/offscreen/offscreen.html",
+      reasons: ["WORKERS"],
+      justification: "Tesseract.js OCR engine requires Web Workers and WASM, which only work in a document context (not in service workers or popups)."
+    });
+    log("Offscreen document created successfully");
+  } catch (err) {
+    logError("Offscreen document creation (may already exist):", err);
+  }
+}
 async function cropImage(dataUrl, region, dpr) {
   const img = await createImageBitmap(await fetch(dataUrl).then((r) => r.blob()));
   const canvas = new OffscreenCanvas(
@@ -1179,6 +1199,26 @@ chrome.runtime.onMessage.addListener(
         });
         return true;
       }
+      case "OCR_ENSURE_OFFSCREEN" /* OCR_ENSURE_OFFSCREEN */: {
+        log("Ensuring offscreen document exists for OCR...");
+        try {
+          await ensureOffscreenDocument();
+          sendResponse({ ready: true });
+        } catch (err) {
+          logError("Failed to ensure offscreen document:", err);
+          sendResponse({ ready: false, error: err instanceof Error ? err.message : String(err) });
+        }
+        return true;
+      }
+      case "OCR_PREWARM" /* OCR_PREWARM */:
+      case "OCR_RECOGNIZE" /* OCR_RECOGNIZE */:
+      case "OCR_GET_STATUS" /* OCR_GET_STATUS */:
+      case "OCR_CANCEL" /* OCR_CANCEL */:
+      case "OCR_STATUS_UPDATE" /* OCR_STATUS_UPDATE */:
+      case "OCR_PROGRESS" /* OCR_PROGRESS */:
+      case "OCR_RESULT" /* OCR_RESULT */:
+      case "OCR_ERROR" /* OCR_ERROR */:
+        return false;
       default:
         log("Unknown message type", message.type);
         return false;
@@ -1233,6 +1273,7 @@ chrome.runtime.onInstalled.addListener((details) => {
         fixedElementHandling: true
       }
     });
+    ensureOffscreenDocument();
   } else if (details.reason === "update") {
     log("SmartCapture Pro updated", `Previous version: ${details.previousVersion}`);
   }

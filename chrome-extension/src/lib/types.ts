@@ -151,6 +151,19 @@ export enum MessageType {
   GET_SETTINGS_RESPONSE = 'GET_SETTINGS_RESPONSE',
   UPDATE_SETTINGS = 'UPDATE_SETTINGS',
   UPDATE_SETTINGS_RESPONSE = 'UPDATE_SETTINGS_RESPONSE',
+
+  // OCR messages (handled by offscreen document)
+  OCR_PREWARM = 'OCR_PREWARM',
+  OCR_RECOGNIZE = 'OCR_RECOGNIZE',
+  OCR_GET_STATUS = 'OCR_GET_STATUS',
+  OCR_CANCEL = 'OCR_CANCEL',
+  OCR_ENSURE_OFFSCREEN = 'OCR_ENSURE_OFFSCREEN',
+
+  // OCR response messages (from offscreen to popup)
+  OCR_STATUS_UPDATE = 'OCR_STATUS_UPDATE',
+  OCR_PROGRESS = 'OCR_PROGRESS',
+  OCR_RESULT = 'OCR_RESULT',
+  OCR_ERROR = 'OCR_ERROR',
 }
 
 export interface CaptureStartMessage {
@@ -268,4 +281,14 @@ export type ChromeMessage =
   | { type: MessageType.GET_SETTINGS }
   | { type: MessageType.UPDATE_SETTINGS; payload: Partial<Settings> }
   | { type: MessageType.DELETE_CAPTURE; payload: { id: string } }
-  | { type: MessageType.PRE_SCROLL_PAGE };
+  | { type: MessageType.PRE_SCROLL_PAGE }
+  // OCR messages (offscreen document)
+  | { type: MessageType.OCR_PREWARM; payload?: { language?: string } }
+  | { type: MessageType.OCR_RECOGNIZE; payload: { imageData: string; language?: string } }
+  | { type: MessageType.OCR_GET_STATUS }
+  | { type: MessageType.OCR_CANCEL }
+  | { type: MessageType.OCR_ENSURE_OFFSCREEN }
+  | { type: MessageType.OCR_STATUS_UPDATE; payload: { state: string; progress: number; phase: string; error?: string } }
+  | { type: MessageType.OCR_PROGRESS; payload: { progress: number; phase: string } }
+  | { type: MessageType.OCR_RESULT; payload: { text: string; confidence: number; paragraphs: unknown[]; wordCount: number; method: string } }
+  | { type: MessageType.OCR_ERROR; payload: { error: string } };

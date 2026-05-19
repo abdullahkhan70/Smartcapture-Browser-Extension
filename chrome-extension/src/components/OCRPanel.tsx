@@ -11,15 +11,10 @@ import {
   X,
   Clock,
   Hash,
-  Sparkles,
   Monitor,
-  Wifi,
-  Cpu,
-  BookOpen,
-  Eye,
   CheckCircle2,
-  Loader,
   Info,
+  Zap,
 } from 'lucide-react';
 import { Capture } from '@/lib/types';
 import { useAppStore } from '@/store';
@@ -37,22 +32,22 @@ const PHASE_INFO: Record<OCRPhase, { label: string; description: string; icon: R
   prewarming: {
     label: 'Preparing OCR Engine',
     description: 'Pre-loading Tesseract WASM engine in background...',
-    icon: <Cpu size={12} className="animate-pulse text-primary" />,
+    icon: <Zap size={12} className="animate-pulse text-primary" />,
   },
   'initializing-worker': {
     label: 'Loading OCR Engine',
-    description: 'Compiling Tesseract WASM (~2.8MB) — first run takes 30-90s...',
-    icon: <Cpu size={12} className="animate-pulse text-primary" />,
+    description: 'Compiling Tesseract WASM engine...',
+    icon: <Zap size={12} className="animate-pulse text-primary" />,
   },
   'loading-language': {
     label: 'Loading Language Data',
     description: 'Loading English language model...',
-    icon: <BookOpen size={12} className="animate-pulse text-primary" />,
+    icon: <Monitor size={12} className="animate-pulse text-primary" />,
   },
   recognizing: {
     label: 'Recognizing Text',
     description: 'Extracting text from image...',
-    icon: <Eye size={12} className="animate-pulse text-primary" />,
+    icon: <FileText size={12} className="animate-pulse text-primary" />,
   },
   complete: { label: 'Complete', description: '', icon: null },
   error: { label: 'Error', description: '', icon: null },
@@ -62,7 +57,7 @@ const PHASE_INFO: Record<OCRPhase, { label: string; description: string; icon: R
 function getWorkerStatusUI(status: WorkerStatus): { icon: React.ReactNode; label: string; color: string } {
   switch (status.state) {
     case 'idle':
-      return { icon: <Cpu size={10} />, label: 'Engine not loaded', color: 'text-text-muted' };
+      return { icon: <Monitor size={10} />, label: 'Engine not loaded', color: 'text-text-muted' };
     case 'prewarming':
       return { icon: <Loader2 size={10} className="animate-spin" />, label: 'Loading engine...', color: 'text-primary' };
     case 'ready':
@@ -116,20 +111,12 @@ export function OCRPanel({ capture }: OCRPanelProps) {
     mode: activeMode,
     phase,
     workerStatus,
-    prewarmWorker,
     extractText,
     cancel,
     clearResult,
   } = useOCR();
 
   const elapsedStr = useElapsedTime(isProcessing || workerStatus.state === 'prewarming');
-
-  // Pre-warm the Tesseract worker when panel opens (local mode)
-  useEffect(() => {
-    if (selectedMode === 'local' || selectedMode === 'auto') {
-      prewarmWorker('eng');
-    }
-  }, [selectedMode, prewarmWorker]);
 
   // Use live OCR result or cached paragraphs
   const ocrParagraphs = useMemo(() => {
@@ -220,11 +207,7 @@ export function OCRPanel({ capture }: OCRPanelProps) {
   const handleRetry = useCallback(() => {
     clearResult();
     setLocalError(null);
-    // Re-prewarm on retry
-    if (selectedMode === 'local' || selectedMode === 'auto') {
-      prewarmWorker('eng');
-    }
-  }, [clearResult, selectedMode, prewarmWorker]);
+  }, [clearResult]);
 
   React.useEffect(() => {
     if (error) setLocalError(error);
@@ -257,16 +240,16 @@ export function OCRPanel({ capture }: OCRPanelProps) {
     switch (m) {
       case 'server': return 'AI Vision';
       case 'local': return 'Tesseract';
-      default: return 'Auto';
+      default: return 'Local';
     }
   };
 
   const getModeIcon = (m: OCRMode | null) => {
     if (!m) return null;
     switch (m) {
-      case 'server': return <Sparkles size={9} />;
+      case 'server': return <Zap size={9} />;
       case 'local': return <Monitor size={9} />;
-      default: return <Wifi size={9} />;
+      default: return <Monitor size={9} />;
     }
   };
 
@@ -365,9 +348,8 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)' }}
           >
             {([
-              { value: 'local' as OCRMode, label: 'Local', icon: <Monitor size={10} /> },
-              { value: 'auto' as OCRMode, label: 'Auto', icon: <Wifi size={10} /> },
-              { value: 'server' as OCRMode, label: 'AI Vision', icon: <Sparkles size={10} /> },
+              { value: 'local' as OCRMode, label: 'Local OCR', icon: <Monitor size={10} /> },
+              { value: 'server' as OCRMode, label: 'AI Vision', icon: <Zap size={10} /> },
             ]).map((opt) => (
               <button
                 key={opt.value}
@@ -384,8 +366,8 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             ))}
           </div>
 
-          {/* Worker status for Local/Auto mode */}
-          {(selectedMode === 'local' || selectedMode === 'auto') && (
+          {/* Worker status for Local mode */}
+          {selectedMode === 'local' && (
             <div
               className="flex items-center gap-2 px-3 py-2 rounded-lg"
               style={{
@@ -425,7 +407,7 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             >
               <Info size={12} className="text-primary shrink-0 mt-0.5" />
               <p className="text-[10px] text-primary/80 leading-relaxed">
-                First run downloads &amp; compiles the Tesseract WASM engine (~2.8MB). This takes 30-90s. Keep the popup open. Subsequent runs reuse the engine and start instantly.
+                The OCR engine runs in a persistent background process and stays ready between sessions. First-time startup takes a few seconds to load the WASM engine.
               </p>
             </div>
           )}
@@ -438,9 +420,9 @@ export function OCRPanel({ capture }: OCRPanelProps) {
                 border: '1px solid rgba(34, 197, 94, 0.15)',
               }}
             >
-              <Sparkles size={12} className="text-[#22C55E] shrink-0 mt-0.5" />
+              <Zap size={12} className="text-[#22C55E] shrink-0 mt-0.5" />
               <p className="text-[10px] text-[#22C55E] leading-relaxed">
-                Fast &amp; reliable AI-powered text extraction. Requires the SmartCapture server running locally.
+                AI-powered text extraction via the SmartCapture server. Requires a running server.
               </p>
             </div>
           )}
@@ -452,7 +434,7 @@ export function OCRPanel({ capture }: OCRPanelProps) {
               bg-primary hover:bg-primary-dark active:bg-primary-dark transition-smooth cursor-pointer shadow-sm
               disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {selectedMode === 'server' ? <Sparkles size={16} /> : isWorkerReady ? <FileText size={16} /> : <Loader2 size={16} className="animate-spin" />}
+            {selectedMode === 'server' ? <Zap size={16} /> : isWorkerReady ? <FileText size={16} /> : <Loader2 size={16} className="animate-spin" />}
             {isWorkerPrewarming && selectedMode !== 'server'
               ? 'Loading Engine...'
               : 'Extract Text from Image'}
@@ -460,9 +442,7 @@ export function OCRPanel({ capture }: OCRPanelProps) {
           <p className="text-center text-[10px] text-text-muted py-2">
             {selectedMode === 'server'
               ? 'AI Vision uses advanced AI for high-accuracy text extraction.'
-              : selectedMode === 'local'
-                ? 'Local OCR uses Tesseract.js — all processing happens in your browser. No data sent to servers.'
-                : 'Auto tries Local Tesseract first, falls back to AI Vision if needed.'}
+              : 'Local OCR uses Tesseract.js — all processing happens in your browser. No data sent to servers.'}
           </p>
         </div>
       )}
@@ -562,22 +542,6 @@ export function OCRPanel({ capture }: OCRPanelProps) {
               );
             })}
           </div>
-
-          {/* Helpful message during long initialization */}
-          {activeMode === 'local' && phase === 'initializing-worker' && (
-            <div
-              className="flex items-start gap-2 px-3 py-2 rounded-lg"
-              style={{
-                backgroundColor: 'rgba(6, 182, 212, 0.08)',
-                border: '1px solid rgba(6, 182, 212, 0.12)',
-              }}
-            >
-              <Info size={11} className="text-primary shrink-0 mt-0.5" />
-              <p className="text-[10px] text-primary/70 leading-relaxed">
-                Compiling the WASM OCR engine for the first time. This takes 30-90s but only happens once — the engine is reused for all future OCR operations. Please keep this popup open.
-              </p>
-            </div>
-          )}
 
           <button
             onClick={handleCancel}

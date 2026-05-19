@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SmartCapture OCR Engine</title>
+</head>
+<body>
+  <!-- Offscreen document for running Tesseract.js OCR engine.
+       This document persists independently of the popup,
+       allowing the WASM engine to stay initialized across popup sessions.
+       Web Workers and WASM work properly here (unlike in service workers). -->
+  <script type="module" src="offscreen.js"></script>
+</body>
+</html>

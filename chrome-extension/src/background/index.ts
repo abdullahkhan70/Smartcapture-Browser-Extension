@@ -117,6 +117,38 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// ===== Offscreen Document Management =====
+
+/**
+ * Create the offscreen document for Tesseract.js OCR engine.
+ * The offscreen document persists independently of the popup,
+ * allowing the WASM engine to stay initialized across popup sessions.
+ */
+async function ensureOffscreenDocument(): Promise<void> {
+  try {
+    // Check if offscreen document already exists
+    const existingContexts = await chrome.runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT'],
+    });
+
+    if (existingContexts.length > 0) {
+      log('Offscreen document already exists');
+      return;
+    }
+
+    log('Creating offscreen document for OCR engine...');
+    await chrome.offscreen.createDocument({
+      url: 'src/offscreen/offscreen.html',
+      reasons: ['WORKERS'],
+      justification: 'Tesseract.js OCR engine requires Web Workers and WASM, which only work in a document context (not in service workers or popups).',
+    });
+    log('Offscreen document created successfully');
+  } catch (err) {
+    // Document might already exist (race condition), that's fine
+    logError('Offscreen document creation (may already exist):', err);
+  }
+}
+
 // ===== Crop Image =====
 
 /**
@@ -1205,6 +1237,31 @@ chrome.runtime.onMessage.addListener(
         return true;
       }
 
+      case MessageType.OCR_ENSURE_OFFSCREEN: {
+        log('Ensuring offscreen document exists for OCR...');
+        try {
+          await ensureOffscreenDocument();
+          sendResponse({ ready: true });
+        } catch (err) {
+          logError('Failed to ensure offscreen document:', err);
+          sendResponse({ ready: false, error: err instanceof Error ? err.message : String(err) });
+        }
+        return true;
+      }
+
+      // OCR messages are handled by the offscreen document, not the background.
+      // We just ignore them here so they don't trigger the "Unknown message type" log.
+      case MessageType.OCR_PREWARM:
+      case MessageType.OCR_RECOGNIZE:
+      case MessageType.OCR_GET_STATUS:
+      case MessageType.OCR_CANCEL:
+      case MessageType.OCR_STATUS_UPDATE:
+      case MessageType.OCR_PROGRESS:
+      case MessageType.OCR_RESULT:
+      case MessageType.OCR_ERROR:
+        // These are handled by the offscreen document or popup
+        return false;
+
       default:
         log('Unknown message type', message.type);
         return false;
@@ -1270,6 +1327,8 @@ chrome.runtime.onInstalled.addListener((details) => {
         fixedElementHandling: true,
       },
     });
+    // Create offscreen document and pre-warm OCR engine on install
+    ensureOffscreenDocument();
   } else if (details.reason === 'update') {
     log('SmartCapture Pro updated', `Previous version: ${details.previousVersion}`);
   }

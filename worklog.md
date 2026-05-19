@@ -66,3 +66,24 @@ Stage Summary:
 - Key insight: Tesseract.js CAN work in Chrome extensions, it just needs enough time (60-120s on first run)
 - The prewarming approach means the engine starts loading as soon as the user opens the OCR panel
 - Subsequent OCR calls reuse the cached worker and are instant
+---
+Task ID: 1
+Agent: Main Agent
+Task: Implement Chrome Offscreen API for Tesseract.js OCR to fix "Engine error" and pre-initialize WASM engine
+
+Work Log:
+- Analyzed the core problem: Tesseract.js Web Worker + WASM fails in Chrome extension popup (Manifest V3)
+- Created offscreen document architecture: offscreen.html + offscreen.ts (Tesseract.js engine management)
+- Updated manifest.json: added "offscreen" permission, offscreen files to web_accessible_resources
+- Added OCR message types to types.ts: OCR_PREWARM, OCR_RECOGNIZE, OCR_GET_STATUS, OCR_CANCEL, OCR_ENSURE_OFFSCREEN, OCR_STATUS_UPDATE, OCR_PROGRESS, OCR_RESULT, OCR_ERROR
+- Updated background service worker: added ensureOffscreenDocument(), OCR_ENSURE_OFFSCREEN handler, OCR message type passthrough, offscreen creation on install
+- Rewrote useOCR.ts: now uses Chrome messaging to communicate with offscreen document instead of direct Tesseract.js
+- Updated OCRPanel.tsx: simplified to Local/Server modes, updated descriptions for new architecture
+- Updated build.js: compiles offscreen.ts with esbuild, copies offscreen files to dist
+- Successfully built the extension - all assets verified
+
+Stage Summary:
+- OCR engine now runs in a persistent offscreen document (survives popup closure)
+- WASM engine is pre-warmed on extension install (instant OCR when user needs it)
+- Architecture: Popup → chrome.runtime.sendMessage → Offscreen Document (Tesseract.js) → results back via messages
+- Build succeeds, dist/ contains all required files including offscreen OCR engine

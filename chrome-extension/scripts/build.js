@@ -1,6 +1,6 @@
 /**
  * Build script for SmartCapture Pro Chrome Extension
- * Handles: TypeScript compilation (background/content scripts), Vite build (popup/editor), 
+ * Handles: TypeScript compilation (background/content/offscreen scripts), Vite build (popup/editor), 
  * manifest preparation, and tesseract asset verification.
  */
 import { execSync } from 'child_process';
@@ -22,13 +22,13 @@ try {
   console.log('   ⚠️  Type check warnings (non-blocking)');
 }
 
-// Step 2: Compile background and content scripts with esbuild
-console.log('📦 Step 2: Compiling service worker & content script...');
+// Step 2: Compile background, content, and offscreen scripts with esbuild
+console.log('📦 Step 2: Compiling service worker, content script & offscreen OCR engine...');
 const esbuild = resolve(root, 'node_modules/.bin/esbuild');
 
-function compileScript(srcPath, outPath) {
+function compileScript(srcPath, outPath, extraArgs = '') {
   execSync(
-    `${esbuild} ${resolve(root, srcPath)} --bundle --outfile=${resolve(root, outPath)} --format=esm --target=chrome110 --platform=browser`,
+    `${esbuild} ${resolve(root, srcPath)} --bundle --outfile=${resolve(root, outPath)} --format=esm --target=chrome110 --platform=browser ${extraArgs}`,
     { stdio: 'pipe' }
   );
   console.log(`   ✅ Compiled ${srcPath} → ${outPath}`);
@@ -36,6 +36,8 @@ function compileScript(srcPath, outPath) {
 
 compileScript('src/background/index.ts', 'src/background/index.js');
 compileScript('src/content/index.ts', 'src/content/index.js');
+// Offscreen OCR engine — bundles tesseract.js into the offscreen script
+compileScript('src/offscreen/offscreen.ts', 'src/offscreen/offscreen.js');
 
 // Step 3: Vite build (popup + editor)
 console.log('📦 Step 3: Vite build (popup + editor)...');
@@ -47,6 +49,7 @@ const distDir = resolve(root, 'dist');
 
 mkdirSync(resolve(distDir, 'src/background'), { recursive: true });
 mkdirSync(resolve(distDir, 'src/content'), { recursive: true });
+mkdirSync(resolve(distDir, 'src/offscreen'), { recursive: true });
 
 copyFileSync(
   resolve(root, 'src/background/index.js'),
@@ -55,6 +58,14 @@ copyFileSync(
 copyFileSync(
   resolve(root, 'src/content/index.js'),
   resolve(distDir, 'src/content/index.js')
+);
+copyFileSync(
+  resolve(root, 'src/offscreen/offscreen.js'),
+  resolve(distDir, 'src/offscreen/offscreen.js')
+);
+copyFileSync(
+  resolve(root, 'src/offscreen/offscreen.html'),
+  resolve(distDir, 'src/offscreen/offscreen.html')
 );
 console.log('   ✅ Scripts copied to dist');
 
@@ -87,6 +98,8 @@ const requiredFiles = [
   'tesseract/tesseract-core-simd-lstm.wasm.js',
   'tesseract/tesseract-core-simd-lstm.wasm',
   'tesseract/langs/eng.traineddata.gz',
+  'src/offscreen/offscreen.html',
+  'src/offscreen/offscreen.js',
 ];
 
 let allPresent = true;
@@ -100,12 +113,13 @@ for (const file of requiredFiles) {
 }
 
 if (!allPresent) {
-  console.error('\n❌ Build failed: Missing tesseract assets. Run setup script first.');
+  console.error('\n❌ Build failed: Missing assets. Run setup script first.');
   process.exit(1);
 }
 
 // Summary
 console.log('\n✨ Build complete!');
 console.log(`   📁 Output: ${distDir}`);
-console.log(`   📦 Files: ${requiredFiles.length + 2} tesseract assets + popup/editor bundles + service worker + content script`);
+console.log(`   📦 OCR Engine: Offscreen document with pre-warmed Tesseract.js WASM`);
+console.log(`   📦 Files: tesseract assets + offscreen OCR engine + popup/editor bundles + service worker + content script`);
 console.log('\nTo load in Chrome: chrome://extensions → Developer mode → Load unpacked → select the dist/ folder');

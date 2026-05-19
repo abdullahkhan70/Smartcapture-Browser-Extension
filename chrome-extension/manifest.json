@@ -8,7 +8,8 @@
     "storage",
     "downloads",
     "alarms",
-    "scripting"
+    "scripting",
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -45,6 +46,8 @@
         "tesseract/tesseract-core-simd-lstm.wasm",
         "tesseract/langs/*",
         "src/editor/index.html",
+        "src/offscreen/offscreen.html",
+        "src/offscreen/offscreen.js",
         "assets/*"
       ],
       "matches": ["<all_urls>"]
