@@ -30,11 +30,19 @@ export type OCRMode = 'auto' | 'server' | 'local';
 /** Detailed phase of the OCR process for granular progress feedback */
 export type OCRPhase =
   | 'idle'
+  | 'prewarming'
   | 'initializing-worker'
   | 'loading-language'
   | 'recognizing'
   | 'complete'
   | 'error';
+
+export interface WorkerStatus {
+  state: 'idle' | 'prewarming' | 'ready' | 'error';
+  progress: number;
+  phase: OCRPhase;
+  error?: string;
+}
 
 interface UseOCRReturn {
   isProcessing: boolean;
@@ -43,12 +51,14 @@ interface UseOCRReturn {
   error: string | null;
   mode: OCRMode;
   phase: OCRPhase;
+  workerStatus: WorkerStatus;
+  prewarmWorker: (language?: string) => void;
   extractText: (imageData: string | Blob, language?: string, preferredMode?: OCRMode) => Promise<OCRResult>;
   cancel: () => Promise<void>;
   clearResult: () => void;
 }
 
-// ===== Tesseract internal types (subset we need) =====
+// ===== Tesseract internal types =====
 
 interface TesseractLine {
   text: string;
@@ -108,9 +118,6 @@ function blobToDataURL(blob: Blob): Promise<string> {
   });
 }
 
-/**
- * Extract a meaningful error message from ANY thrown value.
- */
 function extractErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message || err.toString();
   if (typeof DOMException !== 'undefined' && err instanceof DOMException) {
@@ -193,20 +200,86 @@ function parseParagraphs(data: TesseractData): OCRParagraph[] {
 }
 
 // ===== Tesseract Worker Manager (singleton) =====
+// Keeps one worker alive and reuses it across OCR calls.
+// Supports pre-warming: start initialization early so the worker
+// is ready by the time the user clicks "Extract".
+
+type StatusCallback = (status: WorkerStatus) => void;
 
 class TesseractWorkerManager {
   private worker: Worker | null = null;
   private currentLang: string | null = null;
   private initializing: Promise<Worker> | null = null;
   private _isTerminated = false;
+  private _status: WorkerStatus = { state: 'idle', progress: 0, phase: 'idle' };
+  private statusCallbacks: Set<StatusCallback> = new Set();
 
-  // Shorter timeouts — Tesseract in Chrome extensions often hangs,
-  // so we fail fast and fall back to server
-  private static PER_STRATEGY_TIMEOUT = 30_000; // 30s per strategy attempt
-  private static RECOGNIZE_TIMEOUT = 60_000; // 60s for recognition
+  // Realistic timeouts for Chrome extensions:
+  // - WASM compilation of 2.8MB binary takes 30-90s in Chrome extension popup
+  // - Language data loading takes 5-15s
+  // - Total initialization can take 45-120s on first run
+  private static INIT_TIMEOUT = 120_000; // 2 min — realistic for first-run in extension
+  private static RECOGNIZE_TIMEOUT = 120_000; // 2 min for recognition (large images)
 
   get isReady(): boolean {
     return this.worker !== null && !this._isTerminated;
+  }
+
+  get status(): WorkerStatus {
+    return { ...this._status };
+  }
+
+  onStatusChange(cb: StatusCallback): () => void {
+    this.statusCallbacks.add(cb);
+    return () => this.statusCallbacks.delete(cb);
+  }
+
+  private updateStatus(partial: Partial<WorkerStatus>) {
+    this._status = { ...this._status, ...partial };
+    this.statusCallbacks.forEach((cb) => cb(this._status));
+  }
+
+  /**
+   * Pre-warm the worker by starting initialization early.
+   * Call this when the OCR panel mounts so the engine is ready
+   * when the user clicks "Extract".
+   */
+  prewarm(language: string = 'eng'): void {
+    if (this.worker && !this._isTerminated && this.currentLang === language) {
+      console.log('[SmartCapture OCR] Worker already ready, skipping prewarm');
+      this.updateStatus({ state: 'ready', progress: 100, phase: 'complete' });
+      return;
+    }
+
+    if (this.initializing) {
+      console.log('[SmartCapture OCR] Worker already initializing, skipping prewarm');
+      return;
+    }
+
+    console.log('[SmartCapture OCR] Pre-warming Tesseract worker...');
+    this.updateStatus({ state: 'prewarming', progress: 0, phase: 'prewarming' });
+
+    // Fire and forget — errors will be reported via status
+    this.getWorker(language, (phase, progress) => {
+      this.updateStatus({
+        state: 'prewarming',
+        progress,
+        phase,
+      });
+    })
+      .then(() => {
+        console.log('[SmartCapture OCR] Pre-warm complete!');
+        this.updateStatus({ state: 'ready', progress: 100, phase: 'complete' });
+      })
+      .catch((err) => {
+        console.error('[SmartCapture OCR] Pre-warm failed:', extractErrorMessage(err));
+        this.updateStatus({
+          state: 'error',
+          progress: 0,
+          phase: 'error',
+          error: extractErrorMessage(err),
+        });
+      });
   }
 
   /**
@@ -240,15 +313,17 @@ class TesseractWorkerManager {
     try {
       this.worker = await this._withTimeout(
         this.initializing,
-        TesseractWorkerManager.PER_STRATEGY_TIMEOUT,
-        `Tesseract initialization timed out after ${TesseractWorkerManager.PER_STRATEGY_TIMEOUT / 1000}s. This is common in Chrome extensions — try "AI Vision" mode instead.`
+        TesseractWorkerManager.INIT_TIMEOUT,
+        `Tesseract initialization timed out after ${TesseractWorkerManager.INIT_TIMEOUT / 1000}s. ` +
+        `This can happen on first run when the WASM engine needs to compile (~2.8MB). ` +
+        `Please try again — subsequent runs will be faster as the engine is cached.`
       );
       this.currentLang = language;
       this._isTerminated = false;
       console.log('[SmartCapture OCR] Worker created successfully');
       return this.worker;
     } catch (err) {
-      console.error('[SmartCapture OCR] All worker creation strategies failed:', err);
+      console.error('[SmartCapture OCR] Worker creation failed:', err);
       this.worker = null;
       this.currentLang = null;
       this.initializing = null;
@@ -260,7 +335,6 @@ class TesseractWorkerManager {
 
   /**
    * Try multiple strategies to create a Tesseract worker.
-   * Each strategy has its own timeout so we fail fast.
    */
   private async _tryCreateWorkerStrategies(
     language: string,
@@ -268,13 +342,25 @@ class TesseractWorkerManager {
   ): Promise<Worker> {
     const isExtension = isChromeExtension();
 
-    // Define strategies in order of preference
     const strategies: Array<{ name: string; options: Record<string, unknown> }> = [];
 
     if (isExtension) {
-      // Strategy 1: Chrome Extension with local bundled files + workerBlobURL=false
+      // Strategy 1: Chrome Extension — local files, workerBlobURL=true (Blob Worker)
+      // This creates a Worker from a Blob containing importScripts(workerPath).
+      // Blob Workers can importScripts from chrome-extension:// URLs.
       strategies.push({
-        name: 'Extension Local Files (workerBlobURL=false)',
+        name: 'Extension Blob Worker (local files)',
+        options: {
+          workerBlobURL: true,
+          workerPath: chrome.runtime.getURL('tesseract/worker.min.js'),
+          corePath: chrome.runtime.getURL('tesseract/tesseract-core-simd-lstm.wasm.js'),
+          langPath: chrome.runtime.getURL('tesseract/langs/'),
+        },
+      });
+
+      // Strategy 2: Chrome Extension — local files, workerBlobURL=false (direct Worker)
+      strategies.push({
+        name: 'Extension Direct Worker (local files)',
         options: {
           workerBlobURL: false,
           workerPath: chrome.runtime.getURL('tesseract/worker.min.js'),
@@ -282,10 +368,8 @@ class TesseractWorkerManager {
           langPath: chrome.runtime.getURL('tesseract/langs/'),
         },
       });
-    }
-
-    // Strategy 2: Local public files with workerBlobURL=false (for web app context)
-    if (!isExtension) {
+    } else {
+      // Strategy for web app: local public files
       strategies.push({
         name: 'Public Local Files (workerBlobURL=false)',
         options: {
@@ -297,9 +381,9 @@ class TesseractWorkerManager {
       });
     }
 
-    // Strategy 3: Default CDN approach (works in regular web pages without CSP)
+    // Last resort: CDN approach
     strategies.push({
-      name: 'CDN Default (workerBlobURL=true)',
+      name: 'CDN Default',
       options: {},
     });
 
@@ -307,12 +391,14 @@ class TesseractWorkerManager {
 
     for (const strategy of strategies) {
       console.log(`[SmartCapture OCR] Trying strategy: ${strategy.name}`);
-      onPhase?.('initializing-worker', 5);
+      onPhase?.('initializing-worker', 2);
 
       try {
         const loggerFn = (m: { status: string; progress: number }) => {
           const status = m.status;
           const progress = Math.round(m.progress * 100);
+
+          console.log(`[SmartCapture OCR] Tesseract status: ${status} ${progress}%`);
 
           if (
             status === 'loading tesseract core' ||
@@ -335,7 +421,7 @@ class TesseractWorkerManager {
           logger: loggerFn,
         });
 
-        console.log(`[SmartCapture OCR] Strategy "${strategy.name}" succeeded`);
+        console.log(`[SmartCapture OCR] Strategy "${strategy.name}" succeeded!`);
         onPhase?.('loading-language', 100);
         return worker;
       } catch (err) {
@@ -352,7 +438,8 @@ class TesseractWorkerManager {
     throw new Error(
       `Tesseract.js failed to initialize after trying ${strategies.length} strategies. ` +
       `Last error: ${extractErrorMessage(lastError)}. ` +
-      `This is a known issue in Chrome extensions. Please use "AI Vision" mode instead, which is faster and more reliable.`
+      `Tips: Keep the popup open during initialization (takes 30-90s on first run). ` +
+      `Subsequent runs reuse the engine and are much faster.`
     );
   }
 
@@ -385,6 +472,7 @@ class TesseractWorkerManager {
     this.currentLang = null;
     this._isTerminated = true;
     this.initializing = null;
+    this.updateStatus({ state: 'idle', progress: 0, phase: 'idle' });
   }
 
   private _withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
@@ -448,7 +536,7 @@ async function extractTextViaServer(
   }
 }
 
-// ===== Local OCR via Tesseract.js (with worker reuse) =====
+// ===== Local OCR via Tesseract.js =====
 
 async function extractTextViaTesseract(
   imageData: string,
@@ -494,9 +582,19 @@ export function useOCR(): UseOCRReturn {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<OCRResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<OCRMode>('auto');
+  const [mode, setMode] = useState<OCRMode>('local');
   const [phase, setPhase] = useState<OCRPhase>('idle');
+  const [workerStatus, setWorkerStatus] = useState<WorkerStatus>({ state: 'idle', progress: 0, phase: 'idle' });
   const cancelRef = useRef(false);
+
+  // Listen to worker manager status changes
+  useEffect(() => {
+    const manager = getWorkerManager();
+    const unsub = manager.onStatusChange((status) => {
+      setWorkerStatus(status);
+    });
+    return unsub;
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -505,11 +603,21 @@ export function useOCR(): UseOCRReturn {
     };
   }, []);
 
+  /**
+   * Pre-warm the Tesseract worker. Call this when the OCR panel opens
+   * so the engine starts loading immediately, rather than waiting for
+   * the user to click "Extract".
+   */
+  const prewarmWorker = useCallback((language: string = 'eng') => {
+    const manager = getWorkerManager();
+    manager.prewarm(language);
+  }, []);
+
   const extractText = useCallback(
     async (
       imageData: string | Blob,
       language: string = 'eng',
-      preferredMode: OCRMode = 'server'
+      preferredMode: OCRMode = 'local'
     ): Promise<OCRResult> => {
       if (isProcessing) {
         throw new Error('OCR is already in progress');
@@ -550,11 +658,9 @@ export function useOCR(): UseOCRReturn {
         let ocrResult: OCRResult;
 
         if (preferredMode === 'local') {
-          // Force local Tesseract.js only
           setMode('local');
           ocrResult = await extractTextViaTesseract(imageInput, language, updatePhase);
         } else if (preferredMode === 'server') {
-          // Force server-side VLM only
           setMode('server');
           setPhase('recognizing');
           setProgress(10);
@@ -562,30 +668,30 @@ export function useOCR(): UseOCRReturn {
           setProgress(100);
           setPhase('complete');
         } else {
-          // Auto mode: try server first (more reliable), fall back to local
+          // Auto mode: try local first (user preference), fall back to server
           setMode('auto');
           try {
-            setPhase('recognizing');
-            setProgress(10);
-            ocrResult = await extractTextViaServer(imageInput, language);
-            setMode('server');
-            setProgress(100);
-            setPhase('complete');
-          } catch (serverErr: unknown) {
+            ocrResult = await extractTextViaTesseract(imageInput, language, updatePhase);
+            setMode('local');
+          } catch (localErr: unknown) {
             console.warn(
-              '[SmartCapture OCR] Server OCR failed, falling back to local Tesseract:',
-              extractErrorMessage(serverErr)
+              '[SmartCapture OCR] Local OCR failed, falling back to server:',
+              extractErrorMessage(localErr)
             );
             if (cancelRef.current) throw new Error('OCR was cancelled');
 
+            setPhase('recognizing');
+            setProgress(10);
             try {
-              ocrResult = await extractTextViaTesseract(imageInput, language, updatePhase);
-              setMode('local');
-            } catch (localErr: unknown) {
-              const serverMsg = extractErrorMessage(serverErr);
+              ocrResult = await extractTextViaServer(imageInput, language);
+              setMode('server');
+              setProgress(100);
+              setPhase('complete');
+            } catch (serverErr: unknown) {
               const localMsg = extractErrorMessage(localErr);
+              const serverMsg = extractErrorMessage(serverErr);
               throw new Error(
-                `Both OCR methods failed.\nAI Vision: ${serverMsg}\nLocal Tesseract: ${localMsg}`
+                `Both OCR methods failed.\nLocal Tesseract: ${localMsg}\nAI Vision: ${serverMsg}`
               );
             }
           }
@@ -601,8 +707,6 @@ export function useOCR(): UseOCRReturn {
       } catch (err: unknown) {
         const message = extractErrorMessage(err);
         console.error('[SmartCapture OCR] Full error details:', err);
-        console.error('[SmartCapture OCR] Error type:', typeof err);
-        console.error('[SmartCapture OCR] Error message:', message);
 
         if (cancelRef.current) {
           setError('OCR was cancelled');
@@ -621,7 +725,6 @@ export function useOCR(): UseOCRReturn {
   const cancel = useCallback(async () => {
     cancelRef.current = true;
 
-    // Terminate the Tesseract worker to immediately stop processing
     const manager = getWorkerManager();
     await manager.terminate();
 
@@ -644,6 +747,8 @@ export function useOCR(): UseOCRReturn {
     error,
     mode,
     phase,
+    workerStatus,
+    prewarmWorker,
     extractText,
     cancel,
     clearResult,
