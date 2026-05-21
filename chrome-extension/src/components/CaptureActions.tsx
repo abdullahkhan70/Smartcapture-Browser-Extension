@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Frame, ScanLine, Loader2, AlertCircle, X } from 'lucide-react';
+import { Camera, Frame, Loader2, AlertCircle, X } from 'lucide-react';
 import { useCapture } from '@/hooks/useCapture';
 
 export function CaptureActions() {
@@ -13,17 +13,12 @@ export function CaptureActions() {
     clearError,
   } = useCapture();
 
-  const handleCapture = (type: 'fullpage' | 'visible' | 'region') => {
+  const handleCapture = (type: 'fullpage' | 'visible') => {
     switch (type) {
       case 'fullpage':
         startFullPageCapture();
         break;
       case 'visible':
-        startVisibleCapture();
-        break;
-      case 'region':
-        // Selection capture: fall back to visible area capture for now
-        // Proper region selection will be added later
         startVisibleCapture();
         break;
     }
@@ -42,13 +37,6 @@ export function CaptureActions() {
       label: 'Capture Visible Area',
       shortcut: 'Alt+Shift+V',
       icon: Frame,
-      primary: false,
-    },
-    {
-      type: 'region' as const,
-      label: 'Capture Selection',
-      shortcut: '',
-      icon: ScanLine,
       primary: false,
     },
   ];

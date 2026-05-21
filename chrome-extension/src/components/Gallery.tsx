@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Search, Trash2, Eye, Download, X, ChevronDown, ImageOff, Loader2 } from 'lucide-react';
+import { Search, Trash2, Eye, Download, X, ChevronDown, ImageOff, Loader2, GitCompare } from 'lucide-react';
 import { useGallery, SortOption } from '@/hooks/useGallery';
 import { useAppStore, AppView } from '@/store';
 import { Capture } from '@/lib/types';
@@ -18,6 +18,7 @@ export function Gallery() {
 
   const setView = useAppStore((s) => s.setView);
   const setSelectedCapture = useAppStore((s) => s.setSelectedCapture);
+  const setDiffImages = useAppStore((s) => s.setDiffImages);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -78,6 +79,33 @@ export function Gallery() {
     selectedIds.forEach((id) => deleteCapture(id));
     setSelectedIds(new Set());
   };
+
+  const handleCompareSelected = useCallback(async () => {
+    if (selectedIds.size !== 2) return;
+    const [id1, id2] = Array.from(selectedIds);
+    // Find captures, load full data if needed
+    let cap1 = filteredCaptures.find((c) => c.id === id1);
+    let cap2 = filteredCaptures.find((c) => c.id === id2);
+    if (!cap1 || !cap2) return;
+
+    // Load full imageData if missing
+    if (!cap1.imageData) {
+      const loaded = await loadFullCapture(cap1.id);
+      if (loaded) cap1 = loaded;
+    }
+    if (!cap2.imageData) {
+      const loaded = await loadFullCapture(cap2.id);
+      if (loaded) cap2 = loaded;
+    }
+
+    if (cap1.imageData && cap2.imageData) {
+      // Sort by timestamp: older = before, newer = after
+      const [before, after] = cap1.timestamp < cap2.timestamp ? [cap1, cap2] : [cap2, cap1];
+      setDiffImages(before.imageData, after.imageData);
+      setView('diff');
+      setSelectedIds(new Set());
+    }
+  }, [selectedIds, filteredCaptures, loadFullCapture, setDiffImages, setView]);
 
   const formatTime = (timestamp: number): string => {
     const date = new Date(timestamp);
@@ -184,21 +212,34 @@ export function Gallery() {
         <div
           className="flex items-center justify-between mb-3 p-2.5 rounded-lg animate-fade-in"
           style={{
-            backgroundColor: 'rgba(14, 165, 233, 0.1)',
-            border: '1px solid rgba(14, 165, 233, 0.2)',
+            backgroundColor: selectedIds.size === 2 ? 'rgba(245, 158, 11, 0.1)' : 'rgba(14, 165, 233, 0.1)',
+            border: selectedIds.size === 2 ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(14, 165, 233, 0.2)',
           }}
         >
-          <span className="text-xs text-primary font-medium">
+          <span className={`text-xs font-medium ${selectedIds.size === 2 ? 'text-[#F59E0B]' : 'text-primary'}`}>
             {selectedIds.size} selected
+            {selectedIds.size === 2 && ' · Ready to compare'}
           </span>
-          <button
-            onClick={handleDeleteSelected}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium
-              text-error hover:bg-error/20 transition-colors cursor-pointer"
-          >
-            <Trash2 size={12} />
-            Delete
-          </button>
+          <div className="flex items-center gap-1.5">
+            {selectedIds.size === 2 && (
+              <button
+                onClick={handleCompareSelected}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium
+                  text-[#F59E0B] hover:bg-[#F59E0B]/20 transition-colors cursor-pointer"
+              >
+                <GitCompare size={12} />
+                Compare
+              </button>
+            )}
+            <button
+              onClick={handleDeleteSelected}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium
+                text-error hover:bg-error/20 transition-colors cursor-pointer"
+            >
+              <Trash2 size={12} />
+              Delete
+            </button>
+          </div>
         </div>
       )}
 

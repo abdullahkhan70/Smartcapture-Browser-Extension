@@ -60,3 +60,29 @@ Stage Summary:
 - API key management: Persisted in chrome.storage.local, configurable from UI
 - OCRPanel has 4 modes with visual badges and contextual help text
 - Extension builds successfully: popup.js (470KB), all tesseract assets verified
+---
+Task ID: 1
+Agent: Main Agent
+Task: Implement Visual Diff module for SmartCapture Chrome Extension MVP
+
+Work Log:
+- Read SmartCapture_Pro_Lean_MVP_Specification.pdf and PRD to understand Visual Diff & Change Tracking feature
+- Found existing skeleton: VisualDiffView.tsx (554 lines), store with diffCaptureBefore/After, pixelmatch installed
+- Identified key gaps: no capture selection flow, no onion-skin mode, basic overlay only, no export, QuickTools Diff button not wired
+- Created useDiff hook (chrome-extension/src/hooks/useDiff.ts) — extracted pixelmatch logic, added severity classification (minor/moderate/major), region merging, overlay rendering with colored bounding boxes, export functionality
+- Created DiffCaptureSelector component (chrome-extension/src/components/DiffCaptureSelector.tsx) — two-step selection UI with before/after pickers, search, compare button
+- Rewrote VisualDiffView with 3 modes: Side-by-Side, Overlay (color-coded regions), Onion Skin (draggable slider)
+- Added diff-select AppView to store and App.tsx routing
+- Wired QuickTools Diff button → diff-select view
+- Added "Compare" action to Gallery when 2 captures selected (with timestamp-based before/after ordering)
+- Added "Diff" button to CapturePreview action bar
+- Added diff image export (overlay/mask/side-by-side formats)
+- Fixed TypeScript errors (stats possibly undefined)
+- Build successful
+
+Stage Summary:
+- Visual Diff module fully functional with 3 comparison modes
+- Entry points: QuickTools → Diff, Gallery → Compare (2 selected), CapturePreview → Diff
+- Diff results include: pixel percentage, change regions with severity classification, dimension mismatch warnings
+- Export diff as PNG in multiple formats
+- All code client-side using pixelmatch (no server needed)

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Settings, ChevronLeft } from 'lucide-react';
+import { Camera, ChevronLeft } from 'lucide-react';
 import { useAppStore, AppView } from '@/store';
 
 const VIEW_TITLES: Record<string, string> = {
@@ -54,13 +54,6 @@ export function PopupHeader({ currentView }: PopupHeaderProps) {
             v1.0
           </span>
         )}
-        <button
-          onClick={() => setView('settings')}
-          className="flex items-center justify-center w-7 h-7 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-smooth cursor-pointer"
-          aria-label="Settings"
-        >
-          <Settings size={16} />
-        </button>
       </div>
     </header>
   );

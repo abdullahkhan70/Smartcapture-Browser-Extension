@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { Capture, Settings, CaptureProgress } from '@/lib/types';
 import { DEFAULT_SETTINGS } from '@/lib/constants';
+import { QuotaState, QuotaFeature, QuotaInfo } from '@/hooks/useQuota';
 
-export type AppView = 'main' | 'gallery' | 'settings' | 'preview' | 'annotate' | 'ocr' | 'export' | 'diff';
+export type AppView = 'main' | 'gallery' | 'settings' | 'preview' | 'annotate' | 'ocr' | 'export' | 'diff' | 'diff-select';
 
 interface AppState {
   // Navigation
@@ -21,6 +22,10 @@ interface AppState {
 
   // Settings
   settings: Settings;
+
+  // Daily Quota
+  quota: QuotaState;
+  quotaLoaded: boolean;
 
   // UI State
   isSidebarOpen: boolean;
@@ -47,6 +52,13 @@ interface AppState {
   setDiffImages: (before: string, after: string) => void;
   clearDiffImages: () => void;
 
+  // Actions - Quota
+  setQuota: (quota: QuotaState) => void;
+  setQuotaLoaded: (loaded: boolean) => void;
+  incrementQuotaUsage: (feature: QuotaFeature) => void;
+  checkQuotaAvailable: (feature: QuotaFeature) => boolean;
+  getQuotaInfo: (feature: QuotaFeature) => QuotaInfo;
+
   // Actions - UI
   toggleSidebar: () => void;
   setLoading: (loading: boolean) => void;
@@ -56,6 +68,14 @@ interface AppState {
   // Reset
   reset: () => void;
 }
+
+const DAILY_LIMIT_OCR = 10;
+const DAILY_LIMIT_DIFF = 10;
+
+const initialQuota: QuotaState = {
+  ocr: { used: 0, limit: DAILY_LIMIT_OCR },
+  diff: { used: 0, limit: DAILY_LIMIT_DIFF },
+};
 
 const initialState = {
   currentView: 'main' as AppView,
@@ -71,6 +91,8 @@ const initialState = {
   captureProgress: null as CaptureProgress | null,
   diffCaptureBefore: null as string | null,
   diffCaptureAfter: null as string | null,
+  quota: initialQuota,
+  quotaLoaded: false,
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -140,6 +162,35 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Diff
   setDiffImages: (before, after) => set({ diffCaptureBefore: before, diffCaptureAfter: after }),
   clearDiffImages: () => set({ diffCaptureBefore: null, diffCaptureAfter: null }),
+
+  // Quota
+  setQuota: (quota) => set({ quota }),
+  setQuotaLoaded: (loaded) => set({ quotaLoaded: loaded }),
+  incrementQuotaUsage: (feature) =>
+    set((state) => {
+      const current = state.quota[feature];
+      if (current.used >= current.limit) return state; // already exhausted
+      return {
+        quota: {
+          ...state.quota,
+          [feature]: { ...current, used: current.used + 1 },
+        },
+      };
+    }),
+  checkQuotaAvailable: (feature) => {
+    const { quota } = get();
+    return quota[feature].used < quota[feature].limit;
+  },
+  getQuotaInfo: (feature) => {
+    const { quota } = get();
+    const { used, limit } = quota[feature];
+    return {
+      used,
+      limit,
+      remaining: Math.max(0, limit - used),
+      isExhausted: used >= limit,
+    };
+  },
 
   // UI
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),

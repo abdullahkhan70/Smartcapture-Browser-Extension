@@ -10,10 +10,12 @@ import { OCRPanel } from '@/components/OCRPanel';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { ExportPanel } from '@/components/ExportPanel';
 import { VisualDiffView } from '@/components/VisualDiffView';
+import { DiffCaptureSelector } from '@/components/DiffCaptureSelector';
 import { useAppStore, AppView } from '@/store';
 import { useSettings } from '@/hooks/useSettings';
 import { useGallery } from '@/hooks/useGallery';
 import { useCapture } from '@/hooks/useCapture';
+import { useQuota } from '@/hooks/useQuota';
 
 export default function App() {
   const currentView = useAppStore((s) => s.currentView);
@@ -23,13 +25,22 @@ export default function App() {
   const setSelectedCapture = useAppStore((s) => s.setSelectedCapture);
   const isCapturing = useAppStore((s) => s.isCapturing);
   const captureProgress = useAppStore((s) => s.captureProgress);
-  const diffCaptureBefore = useAppStore((s) => s.diffCaptureBefore);
-  const diffCaptureAfter = useAppStore((s) => s.diffCaptureAfter);
+  const setQuota = useAppStore((s) => s.setQuota);
+  const setQuotaLoaded = useAppStore((s) => s.setQuotaLoaded);
 
   // Initialize settings and gallery data
   useSettings();
   const { refresh } = useGallery();
   const { cancel: cancelCapture } = useCapture();
+  const { quotaState, isLoaded } = useQuota();
+
+  // Sync quota state to store
+  useEffect(() => {
+    if (isLoaded) {
+      setQuota(quotaState);
+      setQuotaLoaded(true);
+    }
+  }, [quotaState, isLoaded, setQuota, setQuotaLoaded]);
 
   useEffect(() => {
     refresh();
@@ -80,15 +91,10 @@ export default function App() {
         ) : (
           <EmptyState message="No capture selected for export" onGoBack={goBack} />
         );
+      case 'diff-select':
+        return <DiffCaptureSelector />;
       case 'diff':
-        return diffCaptureBefore && diffCaptureAfter ? (
-          <VisualDiffView
-            imageBefore={diffCaptureBefore}
-            imageAfter={diffCaptureAfter}
-          />
-        ) : (
-          <EmptyState message="Select two captures to compare" onGoBack={goBack} />
-        );
+        return <VisualDiffView />;
       default:
         return null;
     }

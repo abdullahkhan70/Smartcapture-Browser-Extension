@@ -20,6 +20,7 @@ const tools: {
     tooltip: 'OCR Text Extraction',
     icon: FileText,
     color: 'text-[#0EA5E9]',
+    view: 'ocr',
   },
   {
     id: 'diff',
@@ -27,6 +28,7 @@ const tools: {
     tooltip: 'Visual Comparison',
     icon: GitCompare,
     color: 'text-[#F59E0B]',
+    view: 'diff-select',
   },
   {
     id: 'annotate',
@@ -50,9 +52,6 @@ export function QuickTools({ onNavigate }: QuickToolsProps) {
   const handleToolClick = (tool: typeof tools[number]) => {
     if (tool.view) {
       onNavigate(tool.view);
-    } else {
-      // For tools without a dedicated view (OCR, Diff), show a toast or handle differently
-      console.log(`Tool ${tool.id} clicked`);
     }
   };
 

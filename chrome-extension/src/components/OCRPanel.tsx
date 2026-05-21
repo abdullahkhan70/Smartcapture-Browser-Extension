@@ -13,6 +13,7 @@ import {
   Hash,
   Code2,
   Info,
+  AlertTriangle,
 } from 'lucide-react';
 import { Capture } from '@/lib/types';
 import { useAppStore } from '@/store';
@@ -62,6 +63,9 @@ function useElapsedTime(running: boolean): string {
 export function OCRPanel({ capture }: OCRPanelProps) {
   const goBack = useAppStore((s) => s.goBack);
   const updateCapture = useAppStore((s) => s.updateCapture);
+  const quotaInfo = useAppStore((s) => s.getQuotaInfo('ocr'));
+  const incrementQuotaUsage = useAppStore((s) => s.incrementQuotaUsage);
+
   const [cachedParagraphs, setCachedParagraphs] = useState<OCRParagraph[]>(() => {
     if (capture.ocrText) {
       return [{ text: capture.ocrText, confidence: 92, bbox: { x: 0, y: 0, width: 0, height: 0 }, words: [] }];
@@ -120,8 +124,14 @@ export function OCRPanel({ capture }: OCRPanelProps) {
   }, [result, cachedResult, ocrParagraphs]);
 
   const handleExtract = useCallback(async () => {
+    // Check quota before extracting
+    if (quotaInfo.isExhausted) return;
+
     try {
       const ocrResult = await extractText();
+
+      // Increment quota usage after successful extraction
+      incrementQuotaUsage('ocr');
 
       setCachedParagraphs(ocrResult.paragraphs);
       setCachedResult(ocrResult);
@@ -133,7 +143,7 @@ export function OCRPanel({ capture }: OCRPanelProps) {
     } catch {
       // Error is already set in the hook
     }
-  }, [capture.id, extractText, updateCapture]);
+  }, [capture.id, extractText, updateCapture, quotaInfo.isExhausted, incrementQuotaUsage]);
 
   const handleCancel = useCallback(async () => {
     await cancel();
@@ -211,29 +221,67 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             OCR Text Extraction
           </h3>
         </div>
-        {ocrParagraphs.length > 0 && (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium
-                bg-surface-elevated text-text-secondary hover:text-text-primary hover:bg-surface-hover
-                transition-smooth cursor-pointer"
+        <div className="flex items-center gap-2">
+          {/* Quota indicator */}
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md"
+            style={{
+              backgroundColor: quotaInfo.isExhausted ? 'rgba(239, 68, 68, 0.12)' : 'rgba(30, 41, 59, 0.5)',
+              border: quotaInfo.isExhausted ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid rgba(255,255,255,0.05)',
+            }}
+          >
+            <span className="text-[9px] font-mono font-medium"
+              style={{ color: quotaInfo.isExhausted ? '#EF4444' : quotaInfo.remaining <= 3 ? '#F59E0B' : '#64748B' }}
             >
-              {copied ? <Check size={11} className="text-[#22C55E]" /> : <Copy size={11} />}
-              {copied ? 'Copied' : 'Copy All'}
-            </button>
-            <button
-              onClick={handleExportTxt}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium
-                bg-surface-elevated text-text-secondary hover:text-text-primary hover:bg-surface-hover
-                transition-smooth cursor-pointer"
-            >
-              <Download size={11} />
-              TXT
-            </button>
+              {quotaInfo.used}/{quotaInfo.limit}
+            </span>
           </div>
-        )}
+          {ocrParagraphs.length > 0 && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium
+                  bg-surface-elevated text-text-secondary hover:text-text-primary hover:bg-surface-hover
+                  transition-smooth cursor-pointer"
+              >
+                {copied ? <Check size={11} className="text-[#22C55E]" /> : <Copy size={11} />}
+                {copied ? 'Copied' : 'Copy All'}
+              </button>
+              <button
+                onClick={handleExportTxt}
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium
+                  bg-surface-elevated text-text-secondary hover:text-text-primary hover:bg-surface-hover
+                  transition-smooth cursor-pointer"
+              >
+                <Download size={11} />
+                TXT
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Quota Exhausted Message */}
+      {quotaInfo.isExhausted && (
+        <div
+          className="rounded-xl p-4 mb-3"
+          style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={18} className="text-[#EF4444] shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-[#EF4444] mb-1">
+                You have reached today's quota
+              </p>
+              <p className="text-[11px] text-text-secondary leading-relaxed">
+                You've used all {quotaInfo.limit} OCR extractions for today. Your quota will reset at midnight.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error State */}
       {localError && !isProcessing && (
@@ -310,15 +358,19 @@ export function OCRPanel({ capture }: OCRPanelProps) {
 
           <button
             onClick={handleExtract}
+            disabled={quotaInfo.isExhausted}
             className="flex items-center justify-center gap-2 w-full h-10 rounded-lg text-sm font-semibold text-white
-              bg-primary hover:bg-primary-dark active:bg-primary-dark transition-smooth cursor-pointer shadow-sm"
+              bg-primary hover:bg-primary-dark active:bg-primary-dark transition-smooth cursor-pointer shadow-sm
+              disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Code2 size={16} />
-            Extract Text from Page
+            {quotaInfo.isExhausted ? 'Daily Quota Reached' : 'Extract Text from Page'}
           </button>
-          <p className="text-center text-[10px] text-text-muted py-2">
-            Reads visible text directly from the web page. Fully offline, no API needed.
-          </p>
+          {!quotaInfo.isExhausted && (
+            <p className="text-center text-[10px] text-text-muted py-2">
+              Reads visible text directly from the web page. Fully offline, no API needed.
+            </p>
+          )}
         </div>
       )}
 
@@ -461,11 +513,11 @@ export function OCRPanel({ capture }: OCRPanelProps) {
             </span>
             <button
               onClick={handleExtract}
-              disabled={isProcessing}
+              disabled={isProcessing || quotaInfo.isExhausted}
               className="flex items-center gap-1 text-[10px] text-primary hover:text-primary-dark transition-colors cursor-pointer disabled:opacity-50"
             >
               {isProcessing ? <Loader2 size={10} className="animate-spin" /> : <FileText size={10} />}
-              Re-extract
+              {quotaInfo.isExhausted ? 'Quota Reached' : 'Re-extract'}
             </button>
           </div>
         </div>

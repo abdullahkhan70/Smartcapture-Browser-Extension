@@ -9,6 +9,7 @@ import {
   Share2,
   ChevronLeft,
   Loader2,
+  GitCompare,
 } from 'lucide-react';
 import { Capture } from '@/lib/types';
 import { useAppStore, AppView } from '@/store';
@@ -27,6 +28,7 @@ export function CapturePreview({ capture: initialCapture, onNavigate }: CaptureP
   const goBack = useAppStore((s) => s.goBack);
   const removeCapture = useAppStore((s) => s.removeCapture);
   const updateCapture = useAppStore((s) => s.updateCapture);
+  const setSelectedCapture = useAppStore((s) => s.setSelectedCapture);
   const [showFullscreenEditor, setShowFullscreenEditor] = useState(false);
   const [capture, setCapture] = useState<Capture>(initialCapture);
   const [isLoadingImage, setIsLoadingImage] = useState(false);
@@ -251,27 +253,33 @@ export function CapturePreview({ capture: initialCapture, onNavigate }: CaptureP
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-5 gap-1.5">
         <ActionButton
-          icon={<PenTool size={15} />}
+          icon={<PenTool size={14} />}
           label="Annotate"
           onClick={() => handleAction('annotate')}
           color="text-[#22C55E]"
         />
         <ActionButton
-          icon={<FileText size={15} />}
+          icon={<FileText size={14} />}
           label="OCR"
           onClick={() => handleAction('ocr')}
           color="text-[#0EA5E9]"
         />
         <ActionButton
-          icon={<Download size={15} />}
+          icon={<GitCompare size={14} />}
+          label="Diff"
+          onClick={() => setView('diff-select')}
+          color="text-[#F59E0B]"
+        />
+        <ActionButton
+          icon={<Download size={14} />}
           label="Export"
           onClick={() => handleAction('export')}
           color="text-[#F59E0B]"
         />
         <ActionButton
-          icon={<Trash2 size={15} />}
+          icon={<Trash2 size={14} />}
           label="Delete"
           onClick={handleDelete}
           color="text-[#EF4444]"
