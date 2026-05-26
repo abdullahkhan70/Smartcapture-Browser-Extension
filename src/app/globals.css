@@ -187,6 +187,38 @@
     @apply bg-background text-foreground;
   }
 
+  /* ─── Animation Performance Optimizations ─── */
+  .float-animation,
+  .pulse-glow,
+  .pulse-glow-slow,
+  .badge-bounce,
+  .step-pulse-dot,
+  .stat-border-glow,
+  .section-badge-glow,
+  .breathing-glow,
+  .sparkle-dot {
+    will-change: transform, box-shadow;
+  }
+  .shimmer-bg::after,
+  .shimmer-badge::after,
+  .skeleton-shimmer {
+    will-change: transform;
+  }
+  .animated-gradient-text,
+  .text-gradient-animate,
+  .border-gradient-animated::before {
+    will-change: background-position;
+  }
+  .pro-card-rotating-border::before,
+  .animated-gradient-border::before {
+    will-change: transform;
+  }
+  /* Contain layout for animated sections to reduce repaints */
+  .landing-bg section,
+  .landing-bg [id] {
+    contain: layout style;
+  }
+
   /* Landing page theme utility classes */
   .lp-bg { background-color: var(--lp-bg); }
   .lp-bg-alt { background-color: var(--lp-bg-alt); }

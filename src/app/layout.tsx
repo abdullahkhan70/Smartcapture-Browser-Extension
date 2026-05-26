@@ -26,9 +26,9 @@ const jsonLd = {
   offers: {
     "@type": "AggregateOffer",
     lowPrice: "0",
-    highPrice: "9",
+    highPrice: "0",
     priceCurrency: "USD",
-    offerCount: "2",
+    offerCount: "1",
     offers: [
       {
         "@type": "Offer",
@@ -37,28 +37,21 @@ const jsonLd = {
         priceCurrency: "USD",
         availability: "https://schema.org/InStock",
       },
-      {
-        "@type": "Offer",
-        name: "Pro",
-        price: "9",
-        priceCurrency: "USD",
-        availability: "https://schema.org/InStock",
-      },
     ],
   },
   aggregateRating: {
     "@type": "AggregateRating",
-    ratingValue: "4.8",
-    ratingCount: "1247",
+    ratingValue: "4.2",
+    ratingCount: "12",
     bestRating: "5",
     worstRating: "1",
   },
   featureList: [
     "Full-page screenshot capture",
     "Smart annotation tools",
-    "OCR text extraction (100+ languages)",
+    "OCR text extraction (DOM-based)",
     "Visual diff comparison",
-    "Multi-format export (PNG, JPEG, PDF)",
+    "Multi-format export (PNG, JPEG)",
     "100% local processing",
     "No data collection",
   ],
@@ -89,7 +82,7 @@ const faqJsonLd = {
       name: "What's the difference between Free and Pro?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Pro unlocks PDF export without watermarks, all 6 annotation tools with custom colors, unlimited OCR extractions, and priority support. It's a one-time $9 purchase — no subscriptions.",
+        text: "Pro will unlock PDF export without watermarks, all 6 annotation tools with custom colors, unlimited OCR extractions, and priority support. It's currently in development — stay tuned!",
       },
     },
     {
@@ -105,7 +98,7 @@ const faqJsonLd = {
       name: "Can I capture specific areas of a page?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Absolutely. SmartCapture Pro supports three capture modes: full-page (entire scrollable content), visible area (current viewport), and selection (click and drag to capture a specific region).",
+        text: "SmartCapture Pro currently supports two capture modes: full-page (entire scrollable content) and visible area (current viewport). Area selection capture is on our roadmap.",
       },
     },
     {

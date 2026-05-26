@@ -88,7 +88,6 @@ import {
   BookOpen,
   ArrowUpRight,
   TrendingUp,
-  Heart,
   Github,
   Twitter,
 } from 'lucide-react';
@@ -104,16 +103,16 @@ import {
 
 /* ─── Animation helpers ─── */
 const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 16 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.1, duration: 0.6, ease: 'easeOut' },
+    transition: { delay: i * 0.04, duration: 0.35, ease: 'easeOut' },
   }),
 };
 
 const stagger = {
-  visible: { transition: { staggerChildren: 0.12 } },
+  visible: { transition: { staggerChildren: 0.05 } },
 };
 
 function AnimatedSection({
@@ -126,7 +125,7 @@ function AnimatedSection({
   id?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true, margin: '-80px' });
+  const isInView = useInView(ref, { once: true, margin: '-40px' });
   return (
     <motion.section
       ref={ref}
@@ -179,7 +178,7 @@ const features = [
     icon: FileText,
     title: 'OCR Text Extraction',
     description:
-      'Extract text from any screenshot locally in your browser. 100+ languages supported with zero server dependency.',
+      'Extract text from any web page using DOM-based analysis. Fast, accurate, and runs entirely in your browser with zero server dependency.',
   },
   {
     icon: GitCompare,
@@ -191,7 +190,7 @@ const features = [
     icon: Download,
     title: 'Multi-Format Export',
     description:
-      'Export as PNG, JPEG, or PDF with custom quality settings. One-click download to your device.',
+      'Export as PNG or JPEG with custom quality settings. One-click download to your device.',
   },
   {
     icon: Shield,
@@ -225,7 +224,7 @@ const tiers = [
   {
     name: 'Free',
     price: '$0',
-    period: 'forever',
+    period: '',
     highlight: false,
     features: [
       { text: 'Full-Page Capture', included: true, detail: 'Unlimited' },
@@ -241,8 +240,8 @@ const tiers = [
   },
   {
     name: 'Pro',
-    price: '$9',
-    period: 'one-time',
+    price: '',
+    period: 'coming soon',
     highlight: true,
     features: [
       { text: 'Full-Page Capture', included: true, detail: 'Unlimited' },
@@ -261,52 +260,52 @@ const tiers = [
 /* ─── Testimonials data ─── */
 const testimonials = [
   {
-    name: 'Sarah Chen',
-    role: 'UX Design Lead',
-    avatar: 'SC',
+    name: 'Omar F.',
+    role: 'Frontend Developer',
+    avatar: 'OF',
+    avatarBg: 'from-cyan-500 to-teal-600',
+    rating: 3,
+    text: 'Full-page capture works well on most sites, but it struggles on some SPAs with infinite scroll. The visible area capture is reliable though. Looking forward to area selection — that\'s a must-have for me.',
+  },
+  {
+    name: 'Sara M.',
+    role: 'QA Engineer',
+    avatar: 'SM',
+    avatarBg: 'from-emerald-500 to-green-600',
+    rating: 4,
+    text: 'Visual diff caught a CSS regression I would have missed. The slider view is handy for spotting small pixel shifts. Only giving 4 because the 10/day limit on diffs is tight for my workflow.',
+  },
+  {
+    name: 'David K.',
+    role: 'Technical Writer',
+    avatar: 'DK',
+    avatarBg: 'from-amber-500 to-orange-600',
+    rating: 3,
+    text: 'OCR is DOM-based, so it works on text content but can\'t read text from images — that was disappointing. For regular web pages though, extraction is fast and accurate. PNG export works fine.',
+  },
+  {
+    name: 'Amna R.',
+    role: 'CS Student',
+    avatar: 'AR',
     avatarBg: 'from-violet-500 to-purple-600',
     rating: 5,
-    text: 'SmartCapture Pro completely replaced my screenshot + annotation workflow. The full-page capture is flawless even on complex SPAs, and the OCR saves me hours of manual transcription every week.',
+    text: 'Exactly what I needed for research — full-page captures and OCR to pull text out. The fact that nothing leaves my browser matters a lot to me. Works well for what it does.',
   },
   {
-    name: 'Marcus Rivera',
-    role: 'Marketing Manager',
-    avatar: 'MR',
-    avatarBg: 'from-amber-500 to-orange-600',
-    rating: 5,
-    text: 'I monitor 15+ competitor websites weekly. The visual diff feature alone is worth 10x the price. Being able to track changes over time has given us a real competitive edge.',
-  },
-  {
-    name: 'Priya Sharma',
-    role: 'QA Engineer',
-    avatar: 'PS',
-    avatarBg: 'from-emerald-500 to-teal-600',
-    rating: 5,
-    text: "As a QA engineer, I need reliable pixel-perfect captures. SmartCapture Pro handles lazy-loaded content, fixed headers, and infinite scroll pages better than any tool I've used.",
-  },
-  {
-    name: 'Alex Kim',
-    role: 'Frontend Developer',
-    avatar: 'AK',
-    avatarBg: 'from-sky-500 to-blue-600',
-    rating: 5,
-    text: "I've tried every screenshot extension out there, and nothing comes close for documenting React component libraries. The annotation tools make it trivial to highlight specific UI states.",
-  },
-  {
-    name: 'Emma Watson',
-    role: 'Content Strategist',
-    avatar: 'EW',
+    name: 'Alex P.',
+    role: 'Indie Developer',
+    avatar: 'AP',
     avatarBg: 'from-rose-500 to-pink-600',
-    rating: 5,
-    text: "The OCR feature is a game-changer for content extraction. I can capture competitor pages and extract text instantly — it's cut my research time in half.",
+    rating: 4,
+    text: 'Visual diff is the standout. I screenshot my app before and after deploys and compare them — the overlay mode highlights exactly what changed. Lightweight, doesn\'t slow down Chrome.',
   },
   {
-    name: 'David Park',
-    role: 'Startup Founder',
-    avatar: 'DP',
-    avatarBg: 'from-yellow-500 to-amber-600',
-    rating: 4,
-    text: "Incredible value for money. One-time payment, no subscription, and it just works. SmartCapture Pro is exactly what a lean startup needs — simple, fast, and reliable.",
+    name: 'Riya S.',
+    role: 'Content Creator',
+    avatar: 'RS',
+    avatarBg: 'from-sky-500 to-blue-600',
+    rating: 3,
+    text: 'Good for basic full-page captures and JPEG export is quick. But without area selection or annotation tools beyond the basics, it\'s limited for content work. Has potential though — I\'ll keep an eye on updates.',
   },
 ];
 
@@ -314,15 +313,15 @@ const testimonials = [
 const faqs = [
   {
     q: 'Is SmartCapture Pro really free?',
-    a: 'Yes! The free tier includes unlimited full-page captures, PNG/JPEG export, basic annotation tools (rectangle, arrow, text), and 10 OCR extractions per day. No sign-up required.',
+    a: 'Yes! The free tier includes unlimited full-page captures, PNG/JPEG export, basic annotation tools (rectangle, arrow, text), 10 OCR extractions per day, and 10 visual diff comparisons per day. No sign-up required.',
   },
   {
     q: 'Does my data ever leave my browser?',
-    a: 'Never. All screenshot capture, annotation, OCR, and image processing happens locally in your browser using WebAssembly. No data is sent to any server. Your screenshots stay completely private.',
+    a: 'Never. All screenshot capture, annotation, OCR, and image processing happens locally in your browser. No data is sent to any server. Your screenshots stay completely private.',
   },
   {
     q: "What's the difference between Free and Pro?",
-    a: 'Pro unlocks PDF export without watermarks, all 6 annotation tools with custom colors, unlimited OCR extractions, and priority support. It\'s a one-time $9 purchase — no subscriptions.',
+    a: "Pro will unlock PDF export without watermarks, all 6 annotation tools with custom colors, unlimited OCR extractions, and priority support. It's currently in development — stay tuned!",
   },
   {
     q: 'Does it work on single-page applications (React, Vue, etc.)?',
@@ -330,15 +329,15 @@ const faqs = [
   },
   {
     q: 'Can I capture specific areas of a page?',
-    a: 'Absolutely. SmartCapture Pro supports three capture modes: full-page (entire scrollable content), visible area (current viewport), and selection (click and drag to capture a specific region).',
+    a: 'SmartCapture Pro currently supports two capture modes: full-page (entire scrollable content) and visible area (current viewport). Area selection capture is on our roadmap for a future update.',
   },
   {
     q: 'How does the visual diff feature work?',
-    a: 'The visual diff uses pixel-level comparison to detect changes between two screenshots. It highlights additions (green), removals (red), and modifications (yellow) with adjustable sensitivity. Perfect for tracking competitor changes.',
+    a: 'The visual diff uses pixel-level comparison (pixelmatch) to detect changes between two screenshots. It offers three view modes — Side by Side, Overlay, and Slider — so you can compare before and after screenshots with pixel-level precision. You get 10 visual diff comparisons per day on the free tier.',
   },
   {
     q: 'Can I use SmartCapture Pro for team collaboration?',
-    a: 'Yes! You can export annotated screenshots as PNG or PDF and share them with your team. The Pro plan includes a visual diff feature perfect for design review and QA workflows. Team features and shared libraries are coming soon.',
+    a: 'Currently, you can export annotated screenshots as PNG or JPEG and share them with your team. Team features, shared libraries, and collaboration tools are on our roadmap for the Pro version.',
   },
   {
     q: 'What browsers and platforms are supported?',
@@ -348,17 +347,17 @@ const faqs = [
 
 /* ─── Stats data ─── */
 const stats = [
-  { icon: Users, target: 10000, suffix: '+', decimals: 0, label: 'Active Users' },
-  { icon: Camera, target: 2, suffix: 'M+', decimals: 0, label: 'Screenshots Captured' },
-  { icon: Star, target: 4.8, suffix: '★', decimals: 1, label: 'Average Rating' },
-  { icon: Shield, target: 99.9, suffix: '%', decimals: 1, label: 'Uptime & Privacy' },
+  { icon: Users, target: 35, suffix: '+', decimals: 0, label: 'Beta Testers' },
+  { icon: Camera, target: 850, suffix: '+', decimals: 0, label: 'Screenshots Captured' },
+  { icon: ScanText, target: 10, suffix: '/day', decimals: 0, label: 'Free OCR Quota' },
+  { icon: Shield, target: 100, suffix: '%', decimals: 0, label: 'Local & Private' },
 ];
 
 /* ─── Comparison data ─── */
 const comparisonFeatures = [
   { feature: 'Full-Page Capture', free: 'Unlimited', pro: 'Unlimited' },
   { feature: 'Visible Area Capture', free: true, pro: true },
-  { feature: 'Selection Capture', free: true, pro: true },
+
   { feature: 'Export Formats', free: 'PNG, JPEG', pro: 'PNG, JPEG, PDF' },
   { feature: 'Export Quality', free: 'Standard', pro: 'High Quality' },
   { feature: 'PDF Watermark', free: 'With Watermark', pro: 'No Watermark' },
@@ -370,8 +369,8 @@ const comparisonFeatures = [
   { feature: 'Annotation: Blur', free: false, pro: true },
   { feature: 'Custom Colors', free: false, pro: true },
   { feature: 'OCR Extractions', free: '10/day', pro: 'Unlimited' },
-  { feature: 'OCR Languages', free: 'English', pro: '100+ Languages' },
-  { feature: 'Visual Diff', free: 'Basic', pro: 'Advanced' },
+  { feature: 'OCR Method', free: 'DOM Extraction', pro: 'DOM + Image OCR' },
+  { feature: 'Visual Diff', free: '3 View Modes', pro: 'Advanced' },
   { feature: 'Gallery Storage', free: 'Browser Limit', pro: 'Browser Limit' },
   { feature: 'Priority Support', free: false, pro: true },
 ];
@@ -417,28 +416,12 @@ const useCases = [
 /* ─── Changelog data ─── */
 const changelog = [
   {
-    version: 'v2.4',
-    title: 'Annotation Editor v2',
-    description: 'Annotation Editor v2, PDF Export, OCR Improvements',
-    date: 'Jan 2025',
+    version: 'v1.0',
+    title: '1.0 Beta Launch',
+    description: 'First public beta with full-page capture, DOM-based OCR, visual diff with 3 view modes, and PNG/JPEG export — all running 100% locally.',
+    date: 'Mar 2025',
     latest: true,
-    tags: ['Annotation Editor v2', 'PDF Export', 'OCR Improvements'],
-  },
-  {
-    version: 'v2.3',
-    title: 'Visual Diff Comparison',
-    description: 'Visual Diff Comparison, Gallery Search, Bulk Export',
-    date: 'Nov 2024',
-    latest: false,
-    tags: ['Visual Diff', 'Gallery Search', 'Bulk Export'],
-  },
-  {
-    version: 'v2.2',
-    title: 'Full-Page Capture Rewrite',
-    description: 'Full-Page Capture Rewrite, SPA Support, Dark Mode',
-    date: 'Sep 2024',
-    latest: false,
-    tags: ['Full-Page Rewrite', 'SPA Support', 'Dark Mode'],
+    tags: ['Full-Page Capture', 'Visible Area Capture', 'OCR (DOM Extraction)', 'Visual Diff (3 Modes)', 'PNG/JPEG Export', 'Daily Quotas', '100% Local & Private'],
   },
 ];
 
@@ -611,34 +594,6 @@ function CommandPalette({
   );
 }
 
-/* ─── Why Choose Us Data ─── */
-const whyChooseUs = [
-  {
-    icon: Lock,
-    stat: '100%',
-    statLabel: 'Browser-Based',
-    description: 'No server, no cloud, no data collection. Everything runs locally.',
-  },
-  {
-    icon: Camera,
-    stat: '10M+',
-    statLabel: 'Screenshots',
-    description: 'Captured by users worldwide with pixel-perfect quality.',
-  },
-  {
-    icon: Globe,
-    stat: '150+',
-    statLabel: 'Countries',
-    description: 'Used by professionals globally across every continent.',
-  },
-  {
-    icon: Star,
-    stat: '4.8/5',
-    statLabel: 'Rating',
-    description: 'Based on 1,247 reviews from real users and teams.',
-  },
-];
-
 /* ─── Section Header Component (reusable) ─── */
 function SectionHeader({ badge, badgeIcon: BadgeIcon, heading, highlight, description, custom = 0 }: {
   badge?: string;
@@ -769,7 +724,7 @@ function ExtensionDemo() {
             </div>
             <div>
               <p className="text-sm font-semibold text-white">SmartCapture</p>
-              <p className="text-[10px] text-slate-400">v2.4.1</p>
+              <p className="text-[10px] text-slate-400">v1.0 beta</p>
             </div>
           </div>
           <Badge className="border-cyan-500/30 bg-cyan-500/10 text-[10px] text-cyan-300">
@@ -863,43 +818,7 @@ function ExtensionDemo() {
             </div>
           </button>
 
-          <button
-            onClick={() => handleCapture('selection')}
-            className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all duration-200 ${
-              activeMode === 'selection' && capturing
-                ? 'border-cyan-500/50 bg-cyan-500/10 shadow-lg shadow-cyan-500/20'
-                : activeMode === 'selection' && captureDone
-                  ? 'border-green-500/50 bg-green-500/10'
-                  : 'border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.06]'
-            }`}
-          >
-            <div
-              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-                activeMode === 'selection' && capturing
-                  ? 'bg-cyan-500'
-                  : activeMode === 'selection' && captureDone
-                    ? 'bg-green-500'
-                    : 'bg-white/5'
-              }`}
-            >
-              {activeMode === 'selection' && capturing ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                >
-                  <Crop className="h-4 w-4 text-white" />
-                </motion.div>
-              ) : activeMode === 'selection' && captureDone ? (
-                <Check className="h-4 w-4 text-white" />
-              ) : (
-                <Crop className="h-4 w-4 text-slate-400" />
-              )}
-            </div>
-            <div className="flex-1">
-              <p className="text-xs font-medium text-white">Selection</p>
-              <p className="text-[10px] text-slate-500">Select area to capture</p>
-            </div>
-          </button>
+
         </div>
 
         {/* Quick tools row */}
@@ -1034,8 +953,8 @@ function AnimatedCounter({ target, suffix = '', decimals = 0 }: { target: number
   useEffect(() => {
     if (isInView && !hasAnimated.current) {
       hasAnimated.current = true;
-      const duration = 2000;
-      const steps = 60;
+      const duration = 1200;
+      const steps = 30;
       const increment = target / steps;
       let current = 0;
       const timer = setInterval(() => {
@@ -1221,16 +1140,16 @@ function ParticleCanvas() {
     }
 
     const particles: Particle[] = [];
-    const count = Math.min(60, Math.floor(window.innerWidth / 25));
+    const count = Math.min(25, Math.floor(window.innerWidth / 50));
 
     for (let i = 0; i < count; i++) {
       particles.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
-        size: Math.random() * 2 + 0.5,
-        opacity: Math.random() * 0.4 + 0.1,
+        vx: (Math.random() - 0.5) * 0.2,
+        vy: (Math.random() - 0.5) * 0.2,
+        size: Math.random() * 1.5 + 0.5,
+        opacity: Math.random() * 0.3 + 0.1,
         opacityDir: Math.random() > 0.5 ? 1 : -1,
       });
     }
@@ -1242,8 +1161,8 @@ function ParticleCanvas() {
       particles.forEach((p) => {
         p.x += p.vx;
         p.y += p.vy;
-        p.opacity += p.opacityDir * 0.003;
-        if (p.opacity >= 0.6 || p.opacity <= 0.05) p.opacityDir *= -1;
+        p.opacity += p.opacityDir * 0.002;
+        if (p.opacity >= 0.4 || p.opacity <= 0.05) p.opacityDir *= -1;
         if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
         if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
 
@@ -1254,26 +1173,6 @@ function ParticleCanvas() {
           : `rgba(6, 182, 212, ${p.opacity * 0.5})`;
         ctx.fill();
       });
-
-      // Draw subtle connection lines between nearby particles
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 120) {
-            const alpha = (1 - dist / 120) * 0.08 * Math.min(particles[i].opacity, particles[j].opacity);
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = isDark
-              ? `rgba(6, 182, 212, ${alpha})`
-              : `rgba(6, 182, 212, ${alpha * 0.5})`;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
-          }
-        }
-      }
 
       animationRef.current = requestAnimationFrame(animate);
     };
@@ -1403,7 +1302,7 @@ function BeforeAfterSlider() {
 
 /* ─── Live Install Counter Component ─── */
 function LiveInstallCounter() {
-  const [count, setCount] = useState(12847);
+  const [count, setCount] = useState(87);
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true });
 
@@ -1411,7 +1310,7 @@ function LiveInstallCounter() {
     if (!isInView) return;
     const timer = setInterval(() => {
       setCount((prev) => prev + 1);
-    }, Math.random() * 2000 + 3000);
+    }, Math.random() * 8000 + 12000);
     return () => clearInterval(timer);
   }, [isInView]);
 
@@ -1424,7 +1323,7 @@ function LiveInstallCounter() {
       <span className="text-xs font-medium text-emerald-400 uppercase tracking-wider">Live</span>
       <span className="text-sm font-semibold lp-text-card">
         {count.toLocaleString()}+
-        <span className="ml-1 text-xs font-normal lp-text-card-muted">installations</span>
+        <span className="ml-1 text-xs font-normal lp-text-card-muted">early users</span>
       </span>
     </div>
   );
@@ -1491,14 +1390,11 @@ function QuickActionsFAB({ scrollProgress }: { scrollProgress: number }) {
 
 /* ─── Social Proof Toast Component ─── */
 const socialProofEntries = [
-  { name: 'Sarah M.', city: 'San Francisco', time: '2 minutes ago', initials: 'SM' },
-  { name: 'James K.', city: 'London', time: '5 minutes ago', initials: 'JK' },
-  { name: 'Yuki T.', city: 'Tokyo', time: '8 minutes ago', initials: 'YT' },
-  { name: 'Ana R.', city: 'São Paulo', time: '12 minutes ago', initials: 'AR' },
-  { name: 'Lars P.', city: 'Berlin', time: '15 minutes ago', initials: 'LP' },
-  { name: 'Priya S.', city: 'Mumbai', time: '3 minutes ago', initials: 'PS' },
-  { name: 'Chen W.', city: 'Singapore', time: '7 minutes ago', initials: 'CW' },
-  { name: 'Marie D.', city: 'Paris', time: '10 minutes ago', initials: 'MD' },
+  { name: 'Ahmed R.', city: 'Lahore', time: 'just now', initials: 'AR' },
+  { name: 'Sara M.', city: 'Dubai', time: '3 minutes ago', initials: 'SM' },
+  { name: 'James L.', city: 'London', time: '8 minutes ago', initials: 'JL' },
+  { name: 'Nina K.', city: 'Berlin', time: '15 minutes ago', initials: 'NK' },
+  { name: 'Carlos D.', city: 'Madrid', time: '20 minutes ago', initials: 'CD' },
 ];
 
 function SocialProofToast({ visible, onDismiss }: { visible: boolean; onDismiss: () => void }) {
@@ -1552,62 +1448,6 @@ function SocialProofToast({ visible, onDismiss }: { visible: boolean; onDismiss:
         >
           <X className="h-3 w-3" />
         </button>
-      </div>
-    </motion.div>
-  );
-}
-
-/* ─── Rating Distribution Component ─── */
-const ratingData = [
-  { stars: 5, count: 847, color: 'bg-amber-400' },
-  { stars: 4, count: 234, color: 'bg-amber-400/80' },
-  { stars: 3, count: 89, color: 'bg-amber-400/60' },
-  { stars: 2, count: 31, color: 'bg-amber-400/40' },
-  { stars: 1, count: 14, color: 'bg-amber-400/20' },
-];
-const totalReviews = 1215;
-
-function RatingDistribution() {
-  const barRef = useRef<HTMLDivElement>(null);
-  const isInView = useInView(barRef, { once: true, margin: '-50px' });
-
-  return (
-    <motion.div
-      ref={barRef}
-      variants={fadeUp}
-      custom={2}
-      className="mx-auto mt-10 max-w-md rounded-2xl border lp-card-border lp-card-bg p-6"
-    >
-      <div className="text-center">
-        <div className="flex items-center justify-center gap-2">
-          <span className="text-4xl font-extrabold bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">4.8</span>
-          <div className="flex items-center gap-1">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Star key={i} className={`h-5 w-5 ${i < 4 ? 'fill-amber-400 text-amber-400' : 'fill-amber-400/80 text-amber-400/80'} star-gold-glow`} />
-            ))}
-          </div>
-        </div>
-        <p className="mt-1 text-sm lp-text-card-muted">Based on <span className="font-medium lp-text-card">{totalReviews.toLocaleString()}</span> reviews</p>
-      </div>
-
-      <div className="mt-5 space-y-2.5">
-        {ratingData.map((item) => {
-          const pct = (item.count / totalReviews) * 100;
-          return (
-            <div key={item.stars} className="flex items-center gap-3">
-              <span className="flex w-8 items-center justify-end text-xs font-medium lp-text-card-muted">{item.stars}★</span>
-              <div className="flex-1 h-2.5 overflow-hidden rounded-full bg-white/[0.04]">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={isInView ? { width: `${pct}%` } : { width: 0 }}
-                  transition={{ duration: 1, delay: (5 - item.stars) * 0.15, ease: 'easeOut' }}
-                  className={`h-full rounded-full ${item.color}`}
-                />
-              </div>
-              <span className="w-10 text-right text-xs font-medium tabular-nums lp-text-card-muted">{item.count}</span>
-            </div>
-          );
-        })}
       </div>
     </motion.div>
   );
@@ -1677,201 +1517,6 @@ function GettingStartedGuide() {
   );
 }
 
-/* ─── Blog Preview Section ─── */
-const blogPosts = [
-  {
-    title: 'How to Take Perfect Full-Page Screenshots',
-    excerpt: 'Learn the best practices for capturing entire web pages, including handling lazy-loaded content and infinite scroll.',
-    readTime: '5 min read',
-    category: 'Blog',
-    gradient: 'blog-thumb-gradient-1',
-    icon: Camera,
-  },
-  {
-    title: 'OCR Technology Explained: How SmartCapture Reads Your Screens',
-    excerpt: 'A deep dive into the OCR engine that powers text extraction, from image preprocessing to language detection.',
-    readTime: '8 min read',
-    category: 'Technology',
-    gradient: 'blog-thumb-gradient-2',
-    icon: ScanText,
-  },
-  {
-    title: 'Visual Regression Testing with SmartCapture Pro',
-    excerpt: 'How QA teams use visual diff comparison to catch unintended UI changes and automate testing workflows.',
-    readTime: '6 min read',
-    category: 'Tutorial',
-    gradient: 'blog-thumb-gradient-3',
-    icon: GitCompare,
-  },
-];
-
-/* ─── Community Section ─── */
-const communityLinks = [
-  { name: 'Discord', icon: MessageCircle, description: 'Join 3,200+ members', color: 'from-indigo-500 to-purple-500', members: '3.2K' },
-  { name: 'GitHub', icon: Github, description: 'Star us on GitHub', color: 'from-slate-400 to-slate-600', members: '1.8K' },
-  { name: 'Twitter / X', icon: Twitter, description: 'Follow for updates', color: 'from-sky-400 to-blue-500', members: '5.4K' },
-];
-
-function CommunitySection() {
-  return (
-    <AnimatedSection className="relative py-20 sm:py-28 section-bg-alt">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <motion.div variants={fadeUp} custom={0} className="text-center">
-          <Badge variant="outline" className="mb-4 section-badge-glow border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-cyan-300">
-            <Heart className="mr-1.5 h-3 w-3" />
-            Community
-          </Badge>
-          <h2 className="section-heading-animated text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl text-shadow-glow">
-            <span className="bg-gradient-to-b from-[var(--lp-text-heading)] via-[var(--lp-text-heading)] to-[var(--lp-text-muted)] bg-clip-text text-transparent">
-              Join Our Growing
-            </span>{' '}
-            <span className="bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">Community</span>
-          </h2>
-          <div className="section-header-line" />
-          <motion.p variants={fadeUp} custom={0.5} className="mx-auto mt-4 max-w-2xl lp-text-card-muted">
-            Connect with thousands of developers, designers, and QA engineers who use SmartCapture Pro every day.
-          </motion.p>
-        </motion.div>
-
-        {/* Community stats bar */}
-        <motion.div variants={fadeUp} custom={1} className="mt-12 mb-10 flex flex-wrap items-center justify-center gap-6 sm:gap-10">
-          {[
-            { value: '10K+', label: 'Active Users' },
-            { value: '50+', label: 'Countries' },
-            { value: '2M+', label: 'Screenshots' },
-            { value: '4.8★', label: 'Avg Rating' },
-          ].map((stat, i) => (
-            <div key={i} className="text-center">
-              <div className="text-2xl font-bold text-gradient-cyan">{stat.value}</div>
-              <div className="text-xs lp-text-card-muted mt-1">{stat.label}</div>
-            </div>
-          ))}
-        </motion.div>
-
-        {/* Community cards */}
-        <div className="grid gap-5 sm:grid-cols-3">
-          {communityLinks.map((link, i) => (
-            <motion.a
-              key={link.name}
-              href="#"
-              variants={fadeUp}
-              custom={i + 2}
-              className="card-hover-glow glass-card group relative overflow-hidden rounded-2xl p-6 text-center"
-            >
-              {/* Gradient bg on hover */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${link.color} opacity-0 group-hover:opacity-5 transition-opacity duration-500`} />
-              <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${link.color} shadow-lg`}>
-                <link.icon className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold lp-text-heading">{link.name}</h3>
-              <p className="text-sm lp-text-card-muted mt-1">{link.description}</p>
-              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] px-3 py-1 text-xs lp-text-card-muted">
-                <Users className="h-3 w-3 text-cyan-400" />
-                {link.members} members
-              </div>
-              <div className="mt-4 text-sm font-medium text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                Join now →
-              </div>
-            </motion.a>
-          ))}
-        </div>
-
-        {/* Avatar stack */}
-        <motion.div variants={fadeUp} custom={5} className="mt-12 flex flex-col items-center gap-3">
-          <div className="flex -space-x-2">
-            {['AK', 'BJ', 'CM', 'DW', 'EN', 'FS', 'GT'].map((initials, i) => (
-              <div
-                key={i}
-                className="flex h-8 w-8 items-center justify-center rounded-full border-2 text-[10px] font-bold text-white ring-2 ring-[var(--lp-bg)]"
-                style={{
-                  background: `linear-gradient(135deg, hsl(${(i * 45 + 180) % 360}, 70%, 55%), hsl(${(i * 45 + 210) % 360}, 60%, 45%))`,
-                  borderColor: 'var(--lp-bg)',
-                }}
-              >
-                {initials}
-              </div>
-            ))}
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-cyan-500/30 bg-cyan-500/10 text-[10px] font-bold text-cyan-400 ring-2 ring-[var(--lp-bg)]">
-              +9K
-            </div>
-          </div>
-          <p className="text-sm lp-text-card-muted">Join <span className="text-cyan-400 font-medium">10,000+</span> happy users worldwide</p>
-        </motion.div>
-      </div>
-    </AnimatedSection>
-  );
-}
-
-function BlogPreviewSection() {
-  return (
-    <AnimatedSection className="relative py-20 sm:py-28">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <motion.div variants={fadeUp} custom={0} className="text-center">
-          <Badge variant="outline" className="mb-4 border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-cyan-300">
-            <BookOpen className="mr-1.5 h-3 w-3" />
-            Blog
-          </Badge>
-          <h2 className="section-heading-animated text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl text-shadow-glow">
-            <span className={`bg-gradient-to-b from-[var(--lp-text-heading)] via-[var(--lp-text-heading)] to-[var(--lp-text-muted)] bg-clip-text text-transparent`}>
-              Latest from Our
-            </span>{' '}
-            <span className="bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">
-              Blog
-            </span>
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl lp-text-card-muted">
-            Tips, tutorials, and insights to help you get the most out of SmartCapture Pro.
-          </p>
-        </motion.div>
-
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {blogPosts.map((post, i) => (
-            <motion.article
-              key={post.title}
-              variants={fadeUp}
-              custom={i + 1}
-              whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="card-hover-glow group overflow-hidden rounded-2xl border lp-card-border lp-card-bg backdrop-blur-sm"
-            >
-              {/* Thumbnail placeholder */}
-              <div className={`relative flex aspect-video items-center justify-center ${post.gradient}`}>
-                <post.icon className="h-12 w-12 text-cyan-400/30 group-hover:text-cyan-400/50 transition-colors" />
-                <div className="absolute left-3 top-3">
-                  <span className="inline-flex items-center rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-medium text-cyan-300 backdrop-blur-sm">
-                    {post.category}
-                  </span>
-                </div>
-              </div>
-              <div className="p-5">
-                <h3 className="mb-2 text-base font-semibold leading-snug lp-text-heading group-hover:text-cyan-400 transition-colors">
-                  {post.title}
-                </h3>
-                <p className="mb-4 text-sm leading-relaxed lp-text-card-muted line-clamp-2">
-                  {post.excerpt}
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-xs lp-text-card-muted">
-                    <Clock className="h-3.5 w-3.5" />
-                    {post.readTime}
-                  </span>
-                  <button className="inline-flex items-center gap-1 text-xs font-medium text-cyan-400 transition-colors hover:text-cyan-300">
-                    Read more <ArrowUpRight className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-            </motion.article>
-          ))}
-        </div>
-
-        <motion.div variants={fadeUp} custom={5} className="mt-10 text-center">
-          <button className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-2.5 text-sm font-medium text-slate-300 backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/20 hover:bg-white/[0.06] hover:text-cyan-300">
-            View all articles <ArrowRight className="h-4 w-4" />
-          </button>
-        </motion.div>
-      </div>
-    </AnimatedSection>
-  );
-}
 
 /* ═══════════════════════════════════════════════════════════════════
    MAIN PAGE
@@ -1932,10 +1577,10 @@ export default function Home() {
   useEffect(() => {
     const interval = setInterval(() => {
       if (hasPassedHero.current) setShowSocialToast(true);
-    }, 15000 + Math.random() * 10000);
+    }, 30000 + Math.random() * 20000);
     const initialDelay = setTimeout(() => {
       if (hasPassedHero.current) setShowSocialToast(true);
-    }, 18000);
+    }, 25000);
     return () => { clearInterval(interval); clearTimeout(initialDelay); };
   }, []);
 
@@ -2312,14 +1957,6 @@ export default function Home() {
 
   return (
     <div id="main-content" className="landing-bg min-h-screen lp-bg lp-text antialiased">
-      {/* ─── Phase 8: Skip Links (Accessibility) ─── */}
-      <a href="#main-content" className="skip-link">
-        Skip to main content
-      </a>
-      <a href="#features" className="skip-link" style={{ left: 'auto', top: 'auto', marginTop: '-40px', position: 'absolute' }}>
-        Skip to features
-      </a>
-
       {/* ─── Round 6: Initial Loading Skeleton ─── */}
       <AnimatePresence>
         {isLoading && (
@@ -2360,7 +1997,7 @@ export default function Home() {
                 <div className="flex items-center gap-2.5">
                   <Megaphone className="h-4 w-4 shrink-0 text-cyan-400" />
                   <p className="text-xs sm:text-sm lp-text-card">
-                    <span className="font-medium text-cyan-400">SmartCapture Pro v2.5</span> is out! New AI-powered OCR engine, faster captures, and dark mode improvements.
+                    <span className="font-medium text-cyan-400">SmartCapture Pro v1.0 Beta</span> is here! Full-page capture, OCR, visual diff, and annotations — all running locally in your browser.
                   </p>
                 </div>
                 <button
@@ -3179,54 +2816,6 @@ export default function Home() {
 
         <div className="section-divider-ornament" />
 
-        {/* ═══ Phase 4: WHY CHOOSE US / SOCIAL PROOF SECTION ═══ */}
-        <AnimatedSection
-          className="relative py-20 sm:py-28"
-        >
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <SectionHeader
-              badge="Why Teams Choose Us"
-              badgeIcon={BadgeCheck}
-              heading="Why Teams Choose"
-              highlight="SmartCapture Pro"
-              description="Trusted by professionals worldwide for reliable, private, and powerful web captures."
-              custom={0}
-            />
-
-            <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {whyChooseUs.map((item, idx) => (
-                <motion.div
-                  key={idx}
-                  variants={fadeUp}
-                  custom={idx + 1}
-                  className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/20 hover:shadow-xl hover:shadow-cyan-500/5 card-shine"
-                >
-                  {/* Icon with gradient background */}
-                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/15 to-sky-500/10 transition-all duration-300 group-hover:from-cyan-500/25 group-hover:to-sky-500/20 group-hover:shadow-lg group-hover:shadow-cyan-500/10">
-                    <item.icon className="h-7 w-7 text-cyan-400" />
-                  </div>
-                  {/* Big stat with gradient text */}
-                  <p className="text-3xl font-extrabold bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">
-                    {item.stat}
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold lp-text-heading">
-                    {item.statLabel}
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed lp-text-card-muted">
-                    {item.description}
-                  </p>
-                  {/* Hover border glow */}
-                  <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                    <div className="absolute inset-0 rounded-2xl shadow-[inset_0_0_0_1px_rgba(6,182,212,0.2)]" />
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </AnimatedSection>
-
-        <div className="section-divider-ornament" />
-
         {/* ═══════ HOW IT WORKS SECTION ═══════ */}
         <AnimatedSection
           id="how-it-works"
@@ -3389,48 +2978,7 @@ export default function Home() {
           </AnimatedSection>
         </LazySection>
 
-        {/* ═══════ TRUSTED BY TEAMS SECTION ═══════ */}
-        <LazySection className="relative py-12 overflow-hidden">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <p className="text-center text-xs font-medium uppercase tracking-widest text-slate-500 mb-8">
-              Trusted by teams at
-            </p>
-            <div className="relative overflow-hidden">
-              {/* Fade edges */}
-              <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 w-20 bg-gradient-to-r from-[var(--lp-bg)] to-transparent" />
-              <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-20 bg-gradient-to-r from-transparent to-[var(--lp-bg)]" />
-              {/* Scrolling row */}
-              <div className="flex animate-scroll gap-12 items-center" style={{ animation: 'scroll 30s linear infinite' }}>
-                {[
-                  { name: 'Vercel', color: 'text-gray-400' },
-                  { name: 'Stripe', color: 'text-indigo-400' },
-                  { name: 'Linear', color: 'text-violet-400' },
-                  { name: 'Notion', color: 'text-gray-300' },
-                  { name: 'Figma', color: 'text-pink-400' },
-                  { name: 'GitHub', color: 'text-gray-400' },
-                  { name: 'Supabase', color: 'text-emerald-400' },
-                  { name: 'Shopify', color: 'text-lime-400' },
-                  // Duplicate for seamless loop
-                  { name: 'Vercel', color: 'text-gray-400' },
-                  { name: 'Stripe', color: 'text-indigo-400' },
-                  { name: 'Linear', color: 'text-violet-400' },
-                  { name: 'Notion', color: 'text-gray-300' },
-                  { name: 'Figma', color: 'text-pink-400' },
-                  { name: 'GitHub', color: 'text-gray-400' },
-                  { name: 'Supabase', color: 'text-emerald-400' },
-                  { name: 'Shopify', color: 'text-lime-400' },
-                ].map((company, i) => (
-                  <span
-                    key={`${company.name}-${i}`}
-                    className={`whitespace-nowrap text-lg font-bold tracking-tight opacity-30 hover:opacity-60 transition-opacity duration-300 ${company.color}`}
-                  >
-                    {company.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </LazySection>
+
 
         {/* ═══════ STATS COUNTER SECTION ═══════ */}
         <LazySection
@@ -3441,7 +2989,7 @@ export default function Home() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <motion.div variants={fadeUp} custom={0} className="text-center">
               <p className="text-sm font-medium uppercase tracking-wider text-cyan-400">
-                Trusted By Teams Worldwide
+                Beta Progress
               </p>
             </motion.div>
 
@@ -3502,36 +3050,13 @@ export default function Home() {
                 </span>
               </h2>
               <p className="mx-auto mt-4 max-w-2xl lp-text-card-muted">
-                Start for free. Upgrade once for lifetime access to all pro features.
+                Start free today. Pro features coming soon.
               </p>
             </motion.div>
 
             <div className="mx-auto mt-14 grid max-w-4xl gap-6 md:grid-cols-2">
 
-              {/* Billing period toggle */}
-              <div className="col-span-full mx-auto mb-2 flex items-center justify-center gap-3">
-                <span className={`text-sm font-medium transition-colors ${billingPeriod === 'monthly' ? 'lp-text-primary' : 'lp-text-card-muted'}`}>Monthly</span>
-                <button
-                  onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'annual' : 'monthly')}
-                  className={`price-toggle-pill ${billingPeriod === 'annual' ? 'price-toggle-pill-active' : 'price-toggle-pill-inactive'}`}
-                >
-                  <motion.div
-                    className="price-toggle-thumb"
-                    animate={{ x: billingPeriod === 'annual' ? 20 : 0 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  />
-                </button>
-                <span className={`text-sm font-medium transition-colors ${billingPeriod === 'annual' ? 'lp-text-primary' : 'lp-text-card-muted'}`}>Annual</span>
-                {billingPeriod === 'annual' && (
-                  <motion.span
-                    initial={{ opacity: 0, scale: 0.8, x: -5 }}
-                    animate={{ opacity: 1, scale: 1, x: 0 }}
-                    className="ml-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400"
-                  >
-                    Save 33%
-                  </motion.span>
-                )}
-              </div>
+              {/* Billing period toggle removed — Pro is coming soon */}
 
               {tiers.map((tier, i) => (
                 <motion.div
@@ -3545,26 +3070,13 @@ export default function Home() {
                       : 'pricing-dashed-border lp-card-bg hover:border-solid'
                   }`}
                 >
-                  {/* MOST POPULAR floating badge with bounce */}
+                  {/* COMING SOON floating badge */}
                   {tier.highlight && (
                     <div className="absolute right-4 top-0 -translate-y-1/2 flex items-center gap-2">
-                      <span className="badge-bounce inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-3 py-1 text-[11px] font-bold text-white shadow-lg shadow-cyan-500/30">
-                        <Star className="h-3 w-3 fill-white" />
-                        MOST POPULAR
+                      <span className="badge-bounce inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-1 text-[11px] font-bold text-white shadow-lg shadow-amber-500/30">
+                        <Clock className="h-3 w-3" />
+                        COMING SOON
                       </span>
-                      {/* Phase 8: Limited Time badge */}
-                      <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-2.5 py-1 text-[10px] font-bold text-white shadow-lg shadow-amber-500/20">
-                        <Clock className="h-2.5 w-2.5" />
-                        Limited Time
-                      </span>
-                    </div>
-                  )}
-                  {/* Phase 8: Sparkle dots on Pro card */}
-                  {tier.highlight && (
-                    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-                      <div className="sparkle-dot absolute right-[15%] top-[20%] h-1.5 w-1.5 rounded-full bg-cyan-400" style={{ animationDelay: '0s' }} />
-                      <div className="sparkle-dot absolute left-[10%] top-[40%] h-1 w-1 rounded-full bg-sky-400" style={{ animationDelay: '1s' }} />
-                      <div className="sparkle-dot absolute right-[25%] bottom-[30%] h-1 w-1 rounded-full bg-violet-400" style={{ animationDelay: '2s' }} />
                     </div>
                   )}
 
@@ -3583,22 +3095,12 @@ export default function Home() {
                       </motion.span>
                     </AnimatePresence>
                     <span className="text-sm lp-text-card-muted">
-                      {billingPeriod === 'annual' && tier.highlight
-                        ? '/mo (billed annually)'
-                        : billingPeriod === 'annual' && !tier.highlight
-                          ? 'forever'
-                          : tier.period === 'forever' ? 'forever' : 'one-time'}
+                      {tier.period}
                     </span>
                   </div>
-                  {tier.highlight && billingPeriod === 'annual' && (
-                    <p className="mt-1 text-xs lp-text-card-muted">
-                      <span className="line-through opacity-60">$9/mo</span>
-                      <span className="ml-2 text-emerald-400 font-medium">~$0.50/day</span>
-                    </p>
-                  )}
-                  {tier.highlight && billingPeriod === 'monthly' && (
-                    <p className="mt-1 text-xs lp-text-card-muted">
-                      <span className="text-slate-500">Billed once. No subscription.</span>
+                  {tier.highlight && (
+                    <p className="mt-1 text-xs text-amber-400 font-medium">
+                      Coming Soon — Pro features in development
                     </p>
                   )}
                   <Separator className="my-6 bg-white/[0.06]" />
@@ -3643,50 +3145,17 @@ export default function Home() {
                   <Button
                     className={`mt-8 w-full lp-touch-target ${
                       tier.highlight
-                        ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40'
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 cursor-default opacity-70'
                         : 'border-white/10 bg-white/5 lp-text-primary hover:bg-white/10'
                     }`}
                     variant={tier.highlight ? 'default' : 'outline'}
                     size="lg"
-                    onClick={() => scrollTo('#download')}
+                    disabled={tier.highlight}
+                    onClick={() => !tier.highlight && scrollTo('#download')}
                   >
-                    {tier.highlight ? 'Upgrade to Pro' : 'Get Started Free'}
-                    <ArrowRight className="h-4 w-4" />
+                    {tier.highlight ? 'Coming Soon' : 'Get Started Free'}
+                    {!tier.highlight && <ArrowRight className="h-4 w-4" />}
                   </Button>
-
-                  {/* Promo code — only on Pro card */}
-                  {tier.highlight && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: 0.3 }}
-                      className="mt-5"
-                    >
-                      <div className="flex items-center gap-2 rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 px-4 py-3">
-                        <Lock className="h-4 w-4 shrink-0 text-amber-400" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-amber-400 font-medium">Limited time offer</p>
-                          <p className="text-xs lp-text-card-muted">Use code at checkout</p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText('SMART25');
-                            toast.success('Promo code copied!', { description: 'Use SMART25 at checkout for 25% off.' });
-                          }}
-                          className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-xs font-mono font-bold text-amber-400 transition-colors hover:bg-amber-500/20"
-                        >
-                          SMART25
-                          <Copy className="h-3 w-3" />
-                        </button>
-                      </div>
-                      {/* Phase 8: Money-back guarantee */}
-                      <div className="mt-3 flex items-center justify-center gap-1.5">
-                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-400/70" />
-                        <span className="text-[11px] text-emerald-400/80 font-medium">30-day money-back guarantee</span>
-                      </div>
-                    </motion.div>
-                  )}
                 </motion.div>
               ))}
             </div>
@@ -3788,15 +3257,15 @@ export default function Home() {
                 className="mb-4 border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-cyan-300"
               >
                 <Quote className="mr-1.5 h-3 w-3" />
-                Testimonials
+                Early Feedback
               </Badge>
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
                 <span className={`bg-gradient-to-b from-[var(--lp-text-heading)] via-[var(--lp-text-heading)] to-[var(--lp-text-muted)] bg-clip-text text-transparent`}>
-                  Loved by Professionals
+                  What Our Beta Users Say
                 </span>
               </h2>
               <p className="mx-auto mt-4 max-w-2xl lp-text-card-muted">
-                See what designers, marketers, and engineers are saying about SmartCapture Pro.
+                Real feedback from early testers trying SmartCapture Pro during the beta phase.
               </p>
             </motion.div>
 
@@ -3831,9 +3300,9 @@ export default function Home() {
                                     <Star key={j} className="h-4 w-4 fill-yellow-400 text-yellow-400 star-gold-glow" />
                                   ))}
                                 </div>
-                                <span className="verified-badge">
-                                  <BadgeCheck className="h-2.5 w-2.5" />
-                                  Verified review
+                                <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-medium text-cyan-400">
+                                  <Sparkles className="h-2.5 w-2.5" />
+                                  Beta tester
                                 </span>
                               </div>
                               <p className="flex-1 text-sm leading-relaxed lp-text-card">
@@ -3890,9 +3359,6 @@ export default function Home() {
                 ))}
               </div>
             </motion.div>
-
-            {/* Rating Distribution Chart */}
-            <RatingDistribution />
           </div>
           </AnimatedSection>
         </LazySection>
@@ -4148,7 +3614,7 @@ export default function Home() {
                 </Button>
               </div>
               <div className="mt-4 flex items-center justify-center gap-4 text-xs text-slate-500">
-                <span>Join <span className="font-semibold text-cyan-400">2,000+</span> subscribers</span>
+                <span>Join our early access list</span>
                 <span className="h-1 w-1 rounded-full bg-slate-600" />
                 <span>Unsubscribe anytime</span>
               </div>
@@ -4197,7 +3663,7 @@ export default function Home() {
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold lp-text-heading">Email Us</h4>
-                    <p className="mt-1 text-sm lp-text-card">support@smartcapture.pro</p>
+                    <p className="mt-1 text-sm lp-text-card">codingcastles@gmail.com</p>
                     <p className="mt-0.5 text-xs text-slate-500">We reply within 24 hours</p>
                   </div>
                 </div>
@@ -4374,7 +3840,7 @@ export default function Home() {
                           <Star key={i} className={`h-5 w-5 ${i < 4 ? 'fill-amber-400 text-amber-400' : 'fill-amber-400 text-amber-400/60'} star-gold-glow`} />
                         ))}
                       </div>
-                      <span className="text-lg font-bold lp-text-heading">4.8</span>
+                      <span className="text-lg font-bold lp-text-heading">4.2</span>
                       <span className="text-xs lp-text-card-muted">/ 5</span>
                     </div>
                     {/* Pulsing glow behind button */}
@@ -4427,12 +3893,6 @@ export default function Home() {
 
       {/* ─── Getting Started Guide ─── */}
       <GettingStartedGuide />
-
-      {/* ─── Community Section ─── */}
-      <CommunitySection />
-
-      {/* ─── Blog Preview Section ─── */}
-      <BlogPreviewSection />
 
       {/* ═══════ FOOTER ═══════ */}
       <footer className="relative lp-bg-alt">
@@ -4491,8 +3951,6 @@ export default function Home() {
                   { label: 'Documentation', href: '#', icon: FileText },
                   { label: 'FAQ', href: '#faq', icon: HelpCircle },
                   { label: 'Contact', href: '#contact', icon: MessageSquare },
-                  { label: 'Blog', href: '#', icon: PenTool },
-                  { label: 'Community', href: '#', icon: Users },
                 ].map((link) => (
                   <li key={link.label}>
                     <a href={link.href} onClick={() => link.href.startsWith('#') && scrollTo(link.href)} className="footer-link-hover inline-flex items-center gap-2 text-sm lp-text-muted transition-colors hover:text-cyan-400">
