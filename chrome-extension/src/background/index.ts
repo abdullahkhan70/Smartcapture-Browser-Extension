@@ -117,38 +117,6 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// ===== Offscreen Document Management =====
-
-/**
- * Create the offscreen document for Tesseract.js OCR engine.
- * The offscreen document persists independently of the popup,
- * allowing the WASM engine to stay initialized across popup sessions.
- */
-async function ensureOffscreenDocument(): Promise<void> {
-  try {
-    // Check if offscreen document already exists
-    const existingContexts = await chrome.runtime.getContexts({
-      contextTypes: ['OFFSCREEN_DOCUMENT'],
-    });
-
-    if (existingContexts.length > 0) {
-      log('Offscreen document already exists');
-      return;
-    }
-
-    log('Creating offscreen document for OCR engine...');
-    await chrome.offscreen.createDocument({
-      url: 'src/offscreen/offscreen.html',
-      reasons: ['WORKERS'],
-      justification: 'Tesseract.js OCR engine requires Web Workers and WASM, which only work in a document context (not in service workers or popups).',
-    });
-    log('Offscreen document created successfully');
-  } catch (err) {
-    // Document might already exist (race condition), that's fine
-    logError('Offscreen document creation (may already exist):', err);
-  }
-}
-
 // ===== Crop Image =====
 
 /**
@@ -1237,20 +1205,9 @@ chrome.runtime.onMessage.addListener(
         return true;
       }
 
-      case MessageType.OCR_ENSURE_OFFSCREEN: {
-        log('Ensuring offscreen document exists for OCR...');
-        try {
-          await ensureOffscreenDocument();
-          sendResponse({ ready: true });
-        } catch (err) {
-          logError('Failed to ensure offscreen document:', err);
-          sendResponse({ ready: false, error: err instanceof Error ? err.message : String(err) });
-        }
-        return true;
-      }
-
-      // OCR messages are handled by the offscreen document, not the background.
-      // We just ignore them here so they don't trigger the "Unknown message type" log.
+      // OCR messages — currently using DOM-based OCR, no offscreen document needed.
+      // These message types are kept for future image-based OCR support.
+      case MessageType.OCR_ENSURE_OFFSCREEN:
       case MessageType.OCR_PREWARM:
       case MessageType.OCR_RECOGNIZE:
       case MessageType.OCR_GET_STATUS:
@@ -1259,7 +1216,7 @@ chrome.runtime.onMessage.addListener(
       case MessageType.OCR_PROGRESS:
       case MessageType.OCR_RESULT:
       case MessageType.OCR_ERROR:
-        // These are handled by the offscreen document or popup
+        // No-op — DOM-based OCR doesn't use offscreen document
         return false;
 
       default:
@@ -1311,49 +1268,6 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 // ===== Extension Lifecycle =====
 
-// ===== OCR Offscreen Keep-Alive =====
-
-/**
- * Keep the offscreen document alive by periodically pinging it.
- * MV3 service workers can be killed by Chrome after 5 minutes of inactivity,
- * which would also kill the offscreen document. This alarm keeps it alive.
- */
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'ocr-keep-alive') {
-    // Check if offscreen document is still alive
-    chrome.runtime.getContexts({
-      contextTypes: ['OFFSCREEN_DOCUMENT'],
-    }).then((contexts) => {
-      if (contexts.length > 0) {
-        log('OCR keep-alive: offscreen document is alive');
-      } else {
-        log('OCR keep-alive: offscreen document was killed, recreating...');
-        ensureOffscreenDocument();
-      }
-    }).catch(() => {
-      log('OCR keep-alive: failed to check, recreating offscreen...');
-      ensureOffscreenDocument();
-    });
-  }
-});
-
-/**
- * Create the offscreen document and start the OCR engine pre-warming.
- * Called on install and startup so the engine is ready before the user needs it.
- */
-async function prewarmOCREngine(): Promise<void> {
-  log('Pre-warming OCR engine via offscreen document...');
-  await ensureOffscreenDocument();
-
-  // Give the offscreen document a moment to load, then send pre-warm command
-  // The offscreen document also auto-prewarms on load, but this is a safety net
-  setTimeout(() => {
-    chrome.runtime.sendMessage({ type: 'OCR_PREWARM', payload: { language: 'eng' } }).catch(() => {
-      // Offscreen may not be ready yet, that's fine — it auto-prewarms on load
-    });
-  }, 1000);
-}
-
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     log('SmartCapture Pro installed');
@@ -1370,24 +1284,13 @@ chrome.runtime.onInstalled.addListener((details) => {
         fixedElementHandling: true,
       },
     });
-    // Create offscreen document and pre-warm OCR engine on install
-    prewarmOCREngine();
-    // Set up keep-alive alarm (every 4 minutes — well within Chrome's 5-min SW timeout)
-    chrome.alarms.create('ocr-keep-alive', { periodInMinutes: 4 });
   } else if (details.reason === 'update') {
     log('SmartCapture Pro updated', `Previous version: ${details.previousVersion}`);
-    // Also prewarm on update
-    prewarmOCREngine();
-    chrome.alarms.create('ocr-keep-alive', { periodInMinutes: 4 });
   }
 });
 
 chrome.runtime.onStartup.addListener(() => {
   log('SmartCapture Pro service worker started');
-  // Create offscreen document and pre-warm OCR engine on browser startup
-  prewarmOCREngine();
-  // Re-establish keep-alive alarm
-  chrome.alarms.create('ocr-keep-alive', { periodInMinutes: 4 });
 });
 
 log('Background service worker loaded');

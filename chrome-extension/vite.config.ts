@@ -9,10 +9,9 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
-  // Ensure WASM files are treated as external assets, not bundled
-  assetsInclude: ['**/*.wasm'],
   build: {
     outDir: 'dist',
+    minify: true,
     rollupOptions: {
       input: {
         popup: resolve(__dirname, 'src/popup/index.html'),
@@ -25,6 +24,5 @@ export default defineConfig({
       },
     },
   },
-  // Ensure public directory files (tesseract) are copied to dist
   publicDir: 'public',
 });

@@ -7,9 +7,7 @@
     "activeTab",
     "storage",
     "downloads",
-    "alarms",
-    "scripting",
-    "offscreen"
+    "scripting"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -41,14 +39,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "tesseract/worker.min.js",
-        "tesseract/tesseract.min.js",
-        "tesseract/tesseract-core-simd-lstm.wasm.js",
-        "tesseract/tesseract-core-simd-lstm.wasm",
-        "tesseract/langs/*",
         "src/editor/index.html",
-        "src/offscreen/offscreen.html",
-        "src/offscreen/offscreen.js",
         "assets/*"
       ],
       "matches": ["<all_urls>"]
