@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -18,7 +17,6 @@ async function pushToGoogleSheet(data: {
   }
 
   try {
-    // Send as JSON — Apps Script reads this via e.postData.contents → JSON.parse
     const response = await fetch(appsScriptUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -44,7 +42,6 @@ async function pushToGoogleSheet(data: {
       }
     } catch {
       // Apps Script often returns HTML redirect pages after POST
-      // If we get a 200/201/302, the data was likely written
       console.log('[Contact] Google Sheets response (status:', response.status, '):', text.substring(0, 150));
       if (response.ok || response.status === 200 || response.status === 201) {
         return { success: true };
@@ -89,27 +86,20 @@ export async function POST(request: NextRequest) {
     const trimmedSubject = subject?.trim() || '';
     const trimmedMessage = message.trim();
 
-    // Save to local database (always)
-    await db.contactMessage.create({
-      data: {
-        name: trimmedName,
-        email: trimmedEmail,
-        subject: trimmedSubject || null,
-        message: trimmedMessage,
-      },
+    // Push to Google Sheets
+    const result = await pushToGoogleSheet({
+      name: trimmedName,
+      email: trimmedEmail,
+      subject: trimmedSubject,
+      message: trimmedMessage,
     });
 
-    // Push to Google Sheets (awaited — but don't fail the request if it fails)
-    try {
-      await pushToGoogleSheet({
-        name: trimmedName,
-        email: trimmedEmail,
-        subject: trimmedSubject,
-        message: trimmedMessage,
-      });
-    } catch (err) {
-      // Log but don't fail — local DB save already succeeded
-      console.error('[Contact] Google Sheets push failed (non-blocking):', err);
+    if (!result.success) {
+      console.error('[Contact] Google Sheets push failed:', result.error);
+      return NextResponse.json(
+        { error: 'Failed to send message. Please try again later.' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(
