@@ -1877,25 +1877,39 @@ export default function Home() {
     }
     setSendingContact(true);
     try {
-      const res = await fetch('/api/contact', {
+      const appsScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
+      if (!appsScriptUrl) {
+        toast.error('Service not configured. Please try again later.');
+        setSendingContact(false);
+        return;
+      }
+      const res = await fetch(appsScriptUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
-          name: contactName,
-          email: contactEmail,
-          subject: contactSubject,
-          message: contactMessage,
+          name: contactName.trim(),
+          email: contactEmail.trim().toLowerCase(),
+          subject: contactSubject?.trim() || '',
+          message: contactMessage.trim(),
         }),
       });
-      const data = await res.json();
-      if (res.ok) {
+      const text = await res.text();
+      let success = false;
+      try {
+        const data = JSON.parse(text);
+        success = data.success === true;
+      } catch {
+        // Apps Script may return HTML redirect — treat 2xx as success
+        success = res.ok;
+      }
+      if (success) {
         toast.success('Your message is successfully sent!', { description: 'We\'ll get back to you soon.' });
         setContactName('');
         setContactEmail('');
         setContactSubject('');
         setContactMessage('');
       } else {
-        toast.error(data.error || 'Failed to send message. Please try again.');
+        toast.error('Failed to send message. Please try again.');
       }
     } catch {
       toast.error('Network error. Please try again later.');
