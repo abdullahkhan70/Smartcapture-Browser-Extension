@@ -1529,8 +1529,6 @@ export default function Home() {
   const [cookieConsent, setCookieConsent] = useState(false);
   const [showCookiePrefs, setShowCookiePrefs] = useState(false);
   const [cookiePrefs, setCookiePrefs] = useState({ analytics: true, marketing: false });
-  const [email, setEmail] = useState('');
-  const [subscribing, setSubscribing] = useState(false);
   const [activeSection, setActiveSection] = useState('');
 
   // Round 6: Loading skeleton state
@@ -1546,10 +1544,6 @@ export default function Home() {
   const [contactSubject, setContactSubject] = useState('');
   const [contactMessage, setContactMessage] = useState('');
   const [sendingContact, setSendingContact] = useState(false);
-
-  // Footer newsletter state
-  const [footerEmail, setFooterEmail] = useState('');
-  const [footerSubscribing, setFooterSubscribing] = useState(false);
 
   // Carousel state
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
@@ -1871,35 +1865,6 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handler);
   }, [theme, setTheme]);
 
-  /* ─── #3: Newsletter API subscribe ─── */
-  const handleSubscribe = useCallback(async (emailVal: string, source: 'main' | 'footer') => {
-    if (!emailVal || !emailVal.includes('@')) {
-      toast.error('Please enter a valid email address.');
-      return;
-    }
-    const setUploading = source === 'main' ? setSubscribing : setFooterSubscribing;
-    const clearEmail = source === 'main' ? () => setEmail('') : () => setFooterEmail('');
-    setUploading(true);
-    try {
-      const res = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailVal }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(data.message || 'Thanks for subscribing!', { description: "You'll hear from us soon." });
-        clearEmail();
-      } else {
-        toast.error(data.error || 'Subscription failed. Please try again.');
-      }
-    } catch {
-      toast.error('Network error. Please try again later.');
-    } finally {
-      setUploading(false);
-    }
-  }, []);
-
   /* ─── #4: Contact form submit ─── */
   const handleContactSubmit = useCallback(async () => {
     if (!contactName.trim() || !contactEmail.trim() || !contactMessage.trim()) {
@@ -1924,7 +1889,7 @@ export default function Home() {
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success(data.message || 'Message sent!', { description: 'We\'ll get back to you soon.' });
+        toast.success('Your message is successfully sent!', { description: 'We\'ll get back to you soon.' });
         setContactName('');
         setContactEmail('');
         setContactSubject('');
@@ -3571,58 +3536,6 @@ export default function Home() {
           </AnimatedSection>
         </LazySection>
 
-        {/* ═══ #3: NEWSLETTER SECTION (with API integration) ═══════ */}
-        <LazySection className="relative py-20 sm:py-28 newsletter-blobs">
-          <section>
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[var(--lp-bg)] via-[var(--lp-bg-alt)] to-[var(--lp-bg)]" />
-          <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-80px' }}
-              transition={{ duration: 0.6 }}
-              className="mx-auto max-w-lg text-center"
-            >
-              <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/20 to-sky-500/10 text-cyan-400">
-                <Mail className="h-7 w-7" />
-              </div>
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                <span className="text-gradient-white">Stay in the Loop</span>
-              </h2>
-              <p className="mt-4 lp-text-card-muted">
-                Get notified about new features, tips, and updates. No spam, ever.
-              </p>
-              <div className="mt-8 flex items-center gap-2">
-                <Input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSubscribe(email, 'main'); }}
-                  className="h-11 flex-1 lp-input-border lp-input-bg lp-input-text placeholder:text-slate-400 focus-visible:border-cyan-500/40 focus-visible:ring-cyan-500/20"
-                />
-                <Button
-                  onClick={() => handleSubscribe(email, 'main')}
-                  disabled={subscribing}
-                  className="h-11 shrink-0 lp-touch-target bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 disabled:opacity-60"
-                >
-                  {subscribing ? (
-                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
-                      <Mail className="h-4 w-4" />
-                    </motion.div>
-                  ) : 'Subscribe'}
-                </Button>
-              </div>
-              <div className="mt-4 flex items-center justify-center gap-4 text-xs text-slate-500">
-                <span>Join our early access list</span>
-                <span className="h-1 w-1 rounded-full bg-slate-600" />
-                <span>Unsubscribe anytime</span>
-              </div>
-            </motion.div>
-          </div>
-          </section>
-        </LazySection>
-
         <div className="section-divider-ornament" />
 
         {/* ═══ #4: CONTACT US SECTION ═══════ */}
@@ -3948,7 +3861,6 @@ export default function Home() {
               <h4 className="mb-4 text-sm font-semibold lp-text">Resources</h4>
               <ul className="space-y-2.5">
                 {[
-                  { label: 'Documentation', href: '#', icon: FileText },
                   { label: 'FAQ', href: '#faq', icon: HelpCircle },
                   { label: 'Contact', href: '#contact', icon: MessageSquare },
                 ].map((link) => (
@@ -3969,7 +3881,6 @@ export default function Home() {
                 {[
                   { label: 'Privacy Policy', href: '#', icon: Shield },
                   { label: 'Terms of Service', href: '#', icon: Scroll },
-                  { label: 'Cookie Policy', href: '#', icon: Cookie },
                 ].map((link) => (
                   <li key={link.label}>
                     <a href={link.href} className="footer-link-hover inline-flex items-center gap-2 text-sm lp-text-muted transition-colors hover:text-cyan-400">
@@ -3990,24 +3901,6 @@ export default function Home() {
               <span className="bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent">Made with ❤️</span>{' '}
               for the web.
             </p>
-            {/* Footer newsletter mini-form */}
-            <div className="flex items-center gap-2">
-              <Input
-                type="email"
-                placeholder="Your email"
-                value={footerEmail}
-                onChange={(e) => setFooterEmail(e.target.value)}
-                className="h-8 w-36 lp-input-border lp-input-bg lp-input-text text-xs placeholder:text-slate-600 focus-visible:border-cyan-500/40"
-              />
-              <Button
-                size="sm"
-                onClick={() => handleSubscribe(footerEmail, 'footer')}
-                disabled={footerSubscribing}
-                className="h-8 bg-cyan-500/20 text-xs text-cyan-400 hover:bg-cyan-500/30"
-              >
-                {footerSubscribing ? '...' : 'Subscribe'}
-              </Button>
-            </div>
           </div>
         </div>
       </footer>
